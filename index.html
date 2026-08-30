@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Card — OQEAN Consignment Tracker</title>
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="brand"><span class="dot"></span> OQEAN Stock Card</div>
+    <div class="nav-item active" data-view="summary">📊 Summary</div>
+    <div class="nav-item" data-view="stock">📦 Stock by Location</div>
+    <div class="nav-item" data-view="deliveries">🚚 Deliveries &amp; Returns</div>
+    <div class="nav-item" data-view="sales">💵 Sales Entry</div>
+    <div class="nav-item" data-view="invoices">🧾 Invoices</div>
+    <div class="nav-item" data-view="opname">📋 Stock Opname</div>
+    <div class="nav-item" data-view="master">🗂️ Master Data</div>
+    <div class="sidebar-foot">Connected to Supabase</div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">Summary</h1>
+        <div class="sub" id="pageSub">Consignment stock overview across all locations</div>
+      </div>
+    </div>
+    <div class="content" id="content">
+      <div class="loading">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div id="printArea">
+  <div class="ps-header">
+    <div><p class="ps-title" id="p-doctitle">Document</p><div id="p-ref"></div></div>
+    <div id="p-status"></div>
+  </div>
+  <div id="p-meta" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;font-size:11px;"></div>
+  <table>
+    <thead><tr id="p-thead-row"></tr></thead>
+    <tbody id="p-items"></tbody>
+    <tfoot id="p-tfoot"></tfoot>
+  </table>
+  <div class="ps-footer">
+    <div class="ps-sign" id="p-sign-1">Prepared By</div>
+    <div class="ps-sign" id="p-sign-2">Sent By</div>
+    <div class="ps-sign" id="p-sign-3">Received By</div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
