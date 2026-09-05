@@ -24,7 +24,7 @@ export async function updateCommission(locationId, pct) {
 
 /* ---------- Products ---------- */
 export async function getProducts() {
-  const { data, error } = await supabase.from('products').select('*').order('name');
+  const { data, error } = await supabase.from('products').select('*').order('style_name');
   if (error) throw error;
   return data;
 }
@@ -79,7 +79,7 @@ export async function getDeliveries() {
 export async function getDeliveryWithItems(id) {
   const { data, error } = await supabase
     .from('deliveries')
-    .select('*, from_location:from_location_id(name), to_location:to_location_id(name), delivery_items(id, qty, product_id, products(sku, name, color, size))')
+    .select('*, from_location:from_location_id(name), to_location:to_location_id(name), delivery_items(id, qty, product_id, products(sku, style_name, color, size))')
     .eq('id', id)
     .single();
   if (error) throw error;
@@ -163,7 +163,7 @@ export async function advanceDeliveryStatus(delivery) {
 export async function getSales() {
   const { data, error } = await supabase
     .from('sales')
-    .select('*, locations(name), products(sku, name, color, size)')
+    .select('*, locations(name), products(sku, style_name, color, size)')
     .order('sale_date', { ascending: false });
   if (error) throw error;
   return data;
@@ -249,7 +249,7 @@ export async function getInvoices() {
 export async function getSalesForPeriod(locationId, monthStartIso, monthEndIso) {
   const { data, error } = await supabase
     .from('sales')
-    .select('*, products(sku, name, color, size)')
+    .select('*, products(sku, style_name, color, size)')
     .eq('location_id', locationId)
     .gte('sale_date', monthStartIso)
     .lte('sale_date', monthEndIso);
@@ -295,7 +295,7 @@ export async function updateInvoiceStatus(id, status, payment_date) {
 export async function getInvoiceWithItems(id) {
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, locations(name), invoice_items(*, products(sku, name, color, size))')
+    .select('*, locations(name), invoice_items(*, products(sku, style_name, color, size))')
     .eq('id', id)
     .single();
   if (error) throw error;
@@ -315,7 +315,7 @@ export async function getIncomingShipments() {
 export async function getIncomingShipmentWithItems(id) {
   const { data, error } = await supabase
     .from('incoming_shipments')
-    .select('*, locations(name), incoming_shipment_items(id, qty, product_id, products(sku, name, color, size))')
+    .select('*, locations(name), incoming_shipment_items(id, qty, product_id, products(sku, style_name, color, size))')
     .eq('id', id)
     .single();
   if (error) throw error;
