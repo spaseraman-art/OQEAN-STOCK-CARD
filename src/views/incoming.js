@@ -74,9 +74,9 @@ function renderBuilder(root) {
             <tbody id="stockListBody">
               ${productsCache.map(p => {
                 const onHand = stockCache.filter(s => s.product_id === p.id).reduce((s,r)=>s+r.qty,0);
-                return `<tr data-id="${p.id}" data-search="${(p.sku + ' ' + p.name + ' ' + p.color + ' ' + p.size).toLowerCase()}">
+                return `<tr data-id="${p.id}" data-search="${(p.sku + ' ' + p.style_name + ' ' + p.color + ' ' + p.size).toLowerCase()}">
                   <td>${p.sku}</td>
-                  <td>${p.name} — ${p.color} ${p.size}</td>
+                  <td>${p.style_name} — ${p.color} ${p.size}</td>
                   <td>${onHand}</td>
                   <td><input type="number" class="qty-input" data-id="${p.id}" min="0" placeholder="0" style="width:70px;"></td>
                 </tr>`;
@@ -164,7 +164,7 @@ async function renderDetail(root, id) {
             <tbody>
               ${full.incoming_shipment_items.map(i => `
                 <tr>
-                  <td>${i.products.sku}</td><td>${i.products.name} — ${i.products.color} ${i.products.size}</td>
+                  <td>${i.products.sku}</td><td>${i.products.style_name} — ${i.products.color} ${i.products.size}</td>
                   <td>${isDraft ? `<input type="number" class="edit-qty" data-item-id="${i.id}" value="${i.qty}" min="1" style="width:70px;">` : i.qty}</td>
                   ${isDraft ? `<td><button class="btn secondary danger remove-item-btn" data-item-id="${i.id}" style="padding:4px 10px;">✕ Remove</button></td>` : ''}
                 </tr>`).join('')}
@@ -174,7 +174,7 @@ async function renderDetail(root, id) {
             <div style="padding:14px 16px; border-top:1px solid var(--line); display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
               <select id="addProductSel" style="min-width:220px;">
                 ${availableProducts.length
-                  ? availableProducts.map(p => `<option value="${p.id}">${p.sku} — ${p.name} — ${p.color} ${p.size}</option>`).join('')
+                  ? availableProducts.map(p => `<option value="${p.id}">${p.sku} — ${p.style_name} — ${p.color} ${p.size}</option>`).join('')
                   : '<option value="">No more products to add</option>'}
               </select>
               <input type="number" id="addQtyInput" min="1" value="1" style="width:80px;" placeholder="Qty">
