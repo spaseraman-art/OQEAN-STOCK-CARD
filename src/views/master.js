@@ -33,13 +33,13 @@ async function renderProducts(container) {
       </div>
       <div class="panel">
         <table>
-          <thead><tr><th>SKU</th><th>Product</th><th>Fabric</th><th>Color</th><th>Size</th><th>Total On Hand</th><th>Price</th><th>Status</th></tr></thead>
+          <thead><tr><th>SKU</th><th>Product</th><th>Material</th><th>Color</th><th>Size</th><th>Total On Hand</th><th>Price</th><th>Status</th></tr></thead>
           <tbody id="prodBody">
             ${products.map(p => `
               <tr class="hoverable" data-id="${p.id}">
-                <td>${p.sku}</td><td>${p.name}</td><td>${p.fabric}</td><td>${p.color}</td><td>${p.size}</td>
+                <td>${p.sku}</td><td>${p.style_name}</td><td>${p.material}</td><td>${p.color}</td><td>${p.size}</td>
                 <td>${totalByProduct[p.id] || 0}</td>
-                <td>Rp ${Number(p.retail_price).toLocaleString('en-US')}</td>
+                <td>Rp ${Number(p.price).toLocaleString('en-US')}</td>
                 <td><span class="badge ${p.status === 'Active' ? 'sent' : 'draft'}">${p.status}</span></td>
               </tr>`).join('')}
           </tbody>
@@ -68,7 +68,7 @@ async function renderProducts(container) {
       row.addEventListener('click', async () => {
         const product = products.find(p => p.id === row.dataset.id);
         const breakdown = await getProductBreakdown(product.id);
-        container.querySelector('#bd-title').textContent = `${product.name} — ${product.color} ${product.size} (${product.sku})`;
+        container.querySelector('#bd-title').textContent = `${product.style_name} — ${product.color} ${product.size} (${product.sku})`;
         container.querySelector('#bd-body').innerHTML = breakdown.map(b =>
           `<tr><td>${b.location}</td><td>${b.qty}</td></tr>`
         ).join('') || '<tr><td colspan="2" style="color:var(--muted);text-align:center;">No stock movements yet.</td></tr>';
