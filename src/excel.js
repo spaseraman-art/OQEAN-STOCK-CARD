@@ -19,7 +19,7 @@ export function exportDeliveriesList(deliveries) {
 export function exportDeliveryDetail(full) {
   const rows = full.delivery_items.map(i => ({
     SKU: i.products.sku,
-    Product: i.products.name,
+    Product: i.products.style_name,
     Color: i.products.color,
     Size: i.products.size,
     Qty: i.qty,
