@@ -100,7 +100,7 @@ function renderBuilder(root, consignees) {
       pulledSales = await getSalesForPeriod(consSelect.value, start, end);
       const body = builderArea.querySelector('#invItemsBody');
       body.innerHTML = pulledSales.map(s =>
-        `<tr><td>${s.sale_date}</td><td>${s.products.name} — ${s.products.color} ${s.products.size}</td><td>${s.qty}</td><td>${fmtRp(s.unit_price)}</td><td>${fmtRp(s.qty*s.unit_price)}</td></tr>`
+        `<tr><td>${s.sale_date}</td><td>${s.products.style_name} — ${s.products.color} ${s.products.size}</td><td>${s.qty}</td><td>${fmtRp(s.unit_price)}</td><td>${fmtRp(s.qty*s.unit_price)}</td></tr>`
       ).join('') || `<tr><td colspan="5" style="color:var(--muted);text-align:center;">No sales found for this period.</td></tr>`;
       updateTotals();
     } catch (err) {
@@ -147,7 +147,7 @@ async function renderDetail(root, id) {
         </div>
         <div class="panel">
           <table><thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead>
-          <tbody>${full.invoice_items.map(i => `<tr><td>${i.sale_date}</td><td>${i.products.name} — ${i.products.color} ${i.products.size}</td><td>${i.qty}</td><td>${fmtRp(i.unit_price)}</td><td>${fmtRp(i.qty*i.unit_price)}</td></tr>`).join('')}</tbody></table>
+          <tbody>${full.invoice_items.map(i => `<tr><td>${i.sale_date}</td><td>${i.products.style_name} — ${i.products.color} ${i.products.size}</td><td>${i.qty}</td><td>${fmtRp(i.unit_price)}</td><td>${fmtRp(i.qty*i.unit_price)}</td></tr>`).join('')}</tbody></table>
         </div>
         <div class="cards" style="margin-bottom:0;">
           <div class="card"><div class="label">Total Sales</div><div class="value">${fmtRp(full.total_sales)}</div></div>
