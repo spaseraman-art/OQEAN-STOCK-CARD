@@ -45,7 +45,7 @@ export async function render(root) {
       const body = root.querySelector('#opnBody');
       body.innerHTML = currentItems.map((item, idx) => `
         <tr data-idx="${idx}">
-          <td>${item.product.name} — ${item.product.color} ${item.product.size}</td>
+          <td>${item.product.style_name} — ${item.product.color} ${item.product.size}</td>
           <td>${item.system_qty}</td>
           <td><input type="number" class="countInput" data-idx="${idx}" value="${item.system_qty}" min="0" style="width:70px;"></td>
           <td class="varCell">0</td>
@@ -86,7 +86,7 @@ export async function render(root) {
         locationName: locName,
         countDate: root.querySelector('#opnDate').value,
         countedBy: root.querySelector('#opnBy').value,
-        items: currentItems.map(i => ({ name: `${i.product.name} — ${i.product.color} ${i.product.size}`, system_qty: i.system_qty })),
+        items: currentItems.map(i => ({ name: `${i.product.style_name} — ${i.product.color} ${i.product.size}`, system_qty: i.system_qty })),
       });
     });
 
