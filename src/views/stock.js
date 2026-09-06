@@ -33,7 +33,7 @@ export async function render(root) {
       body.innerHTML = rows.map(r => {
         const p = productsById[r.product_id];
         if (!p) return '';
-        return `<tr><td>${p.name} — ${p.color} ${p.size}</td><td>${r.qty}</td></tr>`;
+        return `<tr><td>${p.style_name} — ${p.color} ${p.size}</td><td>${r.qty}</td></tr>`;
       }).join('');
     }
 
