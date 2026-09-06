@@ -22,7 +22,7 @@ export function printDelivery(full) {
   document.getElementById('p-thead-row').innerHTML =
     '<th>SKU</th><th>Product</th><th>Color</th><th>Size</th><th>Qty</th>';
   document.getElementById('p-items').innerHTML = full.delivery_items.map(i =>
-    `<tr><td>${i.products.sku}</td><td>${i.products.name}</td><td>${i.products.color}</td><td>${i.products.size}</td><td>${i.qty}</td></tr>`
+    `<tr><td>${i.products.sku}</td><td>${i.products.style_name}</td><td>${i.products.color}</td><td>${i.products.size}</td><td>${i.qty}</td></tr>`
   ).join('');
   const total = full.delivery_items.reduce((s, i) => s + i.qty, 0);
   document.getElementById('p-tfoot').innerHTML =
@@ -70,7 +70,7 @@ export function printInvoice(full) {
   document.getElementById('p-thead-row').innerHTML =
     '<th>Date</th><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th>';
   document.getElementById('p-items').innerHTML = full.invoice_items.map(i =>
-    `<tr><td>${i.sale_date}</td><td>${i.products.name} — ${i.products.color} ${i.products.size}</td><td>${i.qty}</td><td>${fmtRp(i.unit_price)}</td><td>${fmtRp(i.qty * i.unit_price)}</td></tr>`
+    `<tr><td>${i.sale_date}</td><td>${i.products.style_name} — ${i.products.color} ${i.products.size}</td><td>${i.qty}</td><td>${fmtRp(i.unit_price)}</td><td>${fmtRp(i.qty * i.unit_price)}</td></tr>`
   ).join('');
   document.getElementById('p-tfoot').innerHTML =
     `<tr><td colspan="4" style="text-align:right;">Total Sales</td><td>${fmtRp(full.total_sales)}</td></tr>` +
