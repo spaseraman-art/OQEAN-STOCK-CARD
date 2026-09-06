@@ -11,7 +11,7 @@ export async function render(root) {
         <div class="panel-head"><h3>Log a Sale</h3></div>
         <form class="entry-form">
           <label>Location<select id="logLoc">${consignees.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select></label>
-          <label>Product<select id="logProd">${products.map(p => `<option value="${p.id}" data-price="${p.retail_price}">${p.name} — ${p.color} ${p.size}</option>`).join('')}</select></label>
+          <label>Product<select id="logProd">${products.map(p => `<option value="${p.id}" data-price="${p.price}">${p.style_name} — ${p.color} ${p.size}</option>`).join('')}</select></label>
           <label>Qty<input type="number" id="logQty" value="1" min="1"></label>
           <label>Unit Price<input type="text" id="logPrice" readonly></label>
           <label>Sale Date <span style="color:var(--accent);">(back-dated OK)</span><input type="date" id="logDate" value="${new Date().toISOString().slice(0,10)}"></label>
@@ -27,7 +27,7 @@ export async function render(root) {
           <tbody id="salesBody">
             ${sales.map(s => `
               <tr class="hoverable" data-id="${s.id}">
-                <td>${s.sale_date}</td><td>${s.locations.name}</td><td>${s.products.name} — ${s.products.color} ${s.products.size}</td><td>${s.qty}</td>
+                <td>${s.sale_date}</td><td>${s.locations.name}</td><td>${s.products.style_name} — ${s.products.color} ${s.products.size}</td><td>${s.qty}</td>
               </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted);text-align:center;">No sales yet.</td></tr>'}
           </tbody>
         </table>
