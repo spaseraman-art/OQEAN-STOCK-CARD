@@ -38,7 +38,8 @@ export async function render(root) {
 function monthBounds(monthStr) {
   const [y, m] = monthStr.split('-').map(Number);
   const start = `${monthStr}-01`;
-  const end = new Date(y, m, 0).toISOString().slice(0, 10);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const end = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
   return { start, end };
 }
 
