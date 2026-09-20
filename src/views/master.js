@@ -110,9 +110,7 @@ async function renderLocations(container) {
             ${locations.map(l => `
               <tr>
                 <td>${l.name}</td><td>${l.type}</td><td>${l.contact || '—'}</td>
-                <td>${l.commission_pct != null
-                  ? `<input type="number" class="comm-input" data-id="${l.id}" value="${l.commission_pct}" min="0" max="100" style="width:70px;"> %`
-                  : '<span style="color:var(--muted);">N/A</span>'}</td>
+                                <td><input type="number" class="comm-input" data-id="${l.id}" value="${l.commission_pct ?? ''}" placeholder="—" min="0" max="100" style="width:70px;"> %</td>
                 <td><span class="badge sent">${l.status}</span></td>
               </tr>`).join('')}
           </tbody>
