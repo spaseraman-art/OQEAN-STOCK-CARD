@@ -584,7 +584,7 @@ SKUs not found: ${l.join(", ")}`),alert(u)}catch(c){alert("Failed to import: "+c
             ${t.map(r=>`
               <tr>
                 <td>${r.name}</td><td>${r.type}</td><td>${r.contact||"—"}</td>
-                <td>${r.commission_pct!=null?`<input type="number" class="comm-input" data-id="${r.id}" value="${r.commission_pct}" min="0" max="100" style="width:70px;"> %`:'<span style="color:var(--muted);">N/A</span>'}</td>
+                                <td><input type="number" class="comm-input" data-id="${r.id}" value="${r.commission_pct??""}" placeholder="—" min="0" max="100" style="width:70px;"> %</td>
                 <td><span class="badge sent">${r.status}</span></td>
               </tr>`).join("")}
           </tbody>
