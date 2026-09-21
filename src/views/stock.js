@@ -73,11 +73,19 @@ export async function render(root) {
           border-bottom: none;
         }
       </style>
-      <div class="toolbar">
+            <div class="toolbar" style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600;">
           Location
           <select id="locSelect">${locations.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select>
         </label>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <span style="font-size:12px;color:var(--muted);font-weight:600;">Total Units</span>
+          <span id="locTotal" style="font-size:22px;font-weight:700;">—</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <span style="font-size:12px;color:var(--muted);font-weight:600;">Stock Value</span>
+          <span id="locValue" style="font-size:22px;font-weight:700;">—</span>
+        </div>
       </div>
       <div class="stock-panel">
         <table class="stock-table">
