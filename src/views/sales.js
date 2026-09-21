@@ -23,7 +23,7 @@ export async function render(root) {
       <div class="panel">
         <div class="panel-head"><h3>Recent Sales</h3></div>
         <table>
-          <thead><tr><th>Date</th><th>Location</th><th>Product</th><th>Qty</th></tr></thead>
+          <thead><tr><th>Ref</th><th>Date</th><th>Location</th><th>Product</th><th>Qty</th></tr></thead>
           <tbody id="salesBody">
             ${sales.map(s => `
               <tr class="hoverable" data-id="${s.id}">
