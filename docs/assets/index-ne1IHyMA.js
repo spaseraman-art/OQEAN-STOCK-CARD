@@ -197,8 +197,8 @@ ${x}`}class lt extends Error{constructor({message:t,code:r,cause:a,name:n}){var 
           <select id="locSelect">${r.map(u=>`<option value="${u.id}">${u.name}</option>`).join("")}</select>
         </label>
       </div>
-      <div class="panel" style="overflow-x:auto;">
-        <table id="stockTable" style="min-width:800px;">
+           <div class="panel" style="overflow:auto;max-height:70vh;">
+        <table id="stockTable" style="min-width:800px;border-collapse:separate;border-spacing:0;">
           <thead id="stockHead"></thead>
           <tbody id="stockBody"></tbody>
         </table>
