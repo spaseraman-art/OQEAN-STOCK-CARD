@@ -1,4 +1,4 @@
-import { getLocations, getInvoices, getInvoiceWithItems, getSalesForPeriod, createInvoice, updateInvoiceStatus } from '../db.js';
+import { getLocations, getInvoices, getInvoiceWithItems, getSalesForPeriod, createInvoice, updateInvoiceStatus, voidInvoice } from '../db.js';
 import { printInvoice, fmtRp } from '../print.js';
 
 export async function render(root) {
@@ -14,10 +14,10 @@ export async function render(root) {
           <thead><tr><th>Ref</th><th>Consignee</th><th>Period</th><th>Total Sales</th><th>Commission</th><th>Net to OQEAN</th><th>Due</th><th>Status</th></tr></thead>
           <tbody>
             ${invoices.map(inv => `
-              <tr class="hoverable" data-id="${inv.id}">
+                     <tr class="hoverable" data-id="${inv.id}" ${inv.status==='Void' ? 'style="opacity:0.5;"' : ''}>
                 <td>${inv.ref}</td><td>${inv.locations.name}</td><td>${inv.period_month.slice(0,7)}</td>
                 <td>${fmtRp(inv.total_sales)}</td><td>${inv.commission_pct}%</td><td>${fmtRp(inv.net_amount)}</td>
-                <td>${inv.due_date}</td><td><span class="badge ${inv.status==='Paid'?'sent':inv.status==='Overdue'?'pending':'draft'}">${inv.status}</span></td>
+<td>${inv.due_date}</td><td><span class="badge ${inv.status==='Paid'?'sent':inv.status==='Overdue'?'pending':inv.status==='Void'?'draft':'draft'}">${inv.status}</span></td>
               </tr>`).join('') || '<tr><td colspan="8" style="color:var(--muted);text-align:center;">No invoices yet.</td></tr>'}
           </tbody>
         </table>
@@ -155,17 +155,21 @@ async function renderDetail(root, id) {
           <div class="card"><div class="label">Commission</div><div class="value">${fmtRp(full.commission_amt)}</div></div>
           <div class="card"><div class="label">Net to OQEAN</div><div class="value" style="color:var(--good);">${fmtRp(full.net_amount)}</div></div>
         </div>
-        <div class="panel" style="padding:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <select id="statusSel"><option ${full.status==='Unpaid'?'selected':''}>Unpaid</option><option ${full.status==='Overdue'?'selected':''}>Overdue</option><option ${full.status==='Paid'?'selected':''}>Paid</option></select>
-          <input type="date" id="paymentDate" value="${full.payment_date || ''}">
-          <button class="btn secondary" id="updateStatusBtn">Update Status</button>
+                <div class="panel" style="padding:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          ${full.status === 'Void' 
+            ? `<div style="color:var(--muted);">Voided${full.voided_at ? ' on ' + new Date(full.voided_at).toLocaleDateString() : ''}${full.void_reason ? ' — ' + full.void_reason : ''}</div>`
+            : `<select id="statusSel"><option ${full.status==='Unpaid'?'selected':''}>Unpaid</option><option ${full.status==='Overdue'?'selected':''}>Overdue</option><option ${full.status==='Paid'?'selected':''}>Paid</option></select>
+               <input type="date" id="paymentDate" value="${full.payment_date || ''}">
+               <button class="btn secondary" id="updateStatusBtn">Update Status</button>`}
         </div>
-        <div class="toolbar"><button class="btn secondary" id="printInvBtn">🖨️ Print</button></div>
-      </div>
+        <div class="toolbar">
+          <button class="btn secondary" id="printInvBtn">🖨️ Print</button>
+          ${full.status !== 'Void' ? `<button class="btn secondary" id="voidInvBtn" style="color:#e0603d;">🚫 Void Invoice</button>` : ''}
+        </div>
     `;
     viewArea.querySelector('#closeInvDetail').addEventListener('click', () => { viewArea.innerHTML = ''; });
     viewArea.querySelector('#printInvBtn').addEventListener('click', () => printInvoice(full));
-    viewArea.querySelector('#updateStatusBtn').addEventListener('click', async () => {
+      viewArea.querySelector('#updateStatusBtn').addEventListener('click', async () => {
       try {
         await updateInvoiceStatus(full.id, viewArea.querySelector('#statusSel').value, viewArea.querySelector('#paymentDate').value);
         await render(root);
@@ -173,6 +177,22 @@ async function renderDetail(root, id) {
         alert('Failed to update: ' + err.message);
       }
     });
+
+    // Void invoice
+    const voidBtn = viewArea.querySelector('#voidInvBtn');
+    if (voidBtn) {
+      voidBtn.addEventListener('click', async () => {
+        const reason = prompt(`Void invoice ${full.ref}?\n\nSales on this invoice will be released for re-invoicing.\n\nOptional reason:`, '');
+        if (reason === null) return; // user cancelled
+        try {
+          await voidInvoice(full.id, reason || null);
+          viewArea.innerHTML = '';
+          await render(root);
+        } catch (err) {
+          alert('Failed to void: ' + err.message);
+        }
+      });
+    }
   } catch (err) {
     viewArea.innerHTML = `<div class="error-msg">Failed to load invoice: ${err.message}</div>`;
   }
