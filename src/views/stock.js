@@ -73,7 +73,7 @@ export async function render(root) {
           border-bottom: none;
         }
       </style>
-            <div class="toolbar" style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;">
+      <div class="toolbar" style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600;">
           Location
           <select id="locSelect">${locations.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select>
@@ -97,6 +97,17 @@ export async function render(root) {
 
     function renderForLocation(locationId) {
       const filteredLoc = locations.find(l => l.id === locationId);
+
+      // ---- total for this location only ----
+      const locRows = stock.filter(r => r.location_id === locationId);
+      const locTotal = locRows.reduce((s, r) => s + r.qty, 0);
+      const locValue = locRows.reduce((s, r) => {
+        const p = productsById[r.product_id];
+        return s + r.qty * (p?.price || 0);
+      }, 0);
+      root.querySelector('#locTotal').textContent = locTotal;
+      root.querySelector('#locValue').textContent = 'Rp ' + locValue.toLocaleString('en-US');
+
       const orderedLocations = [];
       if (filteredLoc) orderedLocations.push(filteredLoc);
       homeStores.forEach(l => { if (l.id !== locationId) orderedLocations.push(l); });
