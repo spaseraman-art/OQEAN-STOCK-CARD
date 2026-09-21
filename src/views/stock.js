@@ -8,26 +8,79 @@ export async function render(root) {
     const productsById = {};
     products.forEach(p => productsById[p.id] = p);
 
-    // stock matrix: stockByProductLoc[product_id][location_id] = qty
     const stockByProductLoc = {};
     stock.forEach(r => {
       if (!stockByProductLoc[r.product_id]) stockByProductLoc[r.product_id] = {};
       stockByProductLoc[r.product_id][r.location_id] = (stockByProductLoc[r.product_id][r.location_id] || 0) + r.qty;
     });
 
-    // Home store first (type === 'Main Warehouse'), then others alphabetically
     const homeStores = locations.filter(l => l.type === 'Main Warehouse').sort((a,b) => a.name.localeCompare(b.name));
     const consignees = locations.filter(l => l.type !== 'Main Warehouse').sort((a,b) => a.name.localeCompare(b.name));
 
     root.innerHTML = `
+      <style>
+        .stock-panel {
+          overflow: auto;
+          max-height: 72vh;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+        }
+        .stock-table {
+          min-width: 800px;
+          border-collapse: separate;
+          border-spacing: 0;
+          width: 100%;
+        }
+        .stock-table th, .stock-table td {
+          padding: 10px 14px;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .stock-table th {
+          position: sticky;
+          top: 0;
+          background: var(--panel);
+          z-index: 2;
+          color: var(--muted);
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        .stock-table th.product-col,
+        .stock-table td.product-col {
+          position: sticky;
+          left: 0;
+          background: var(--panel);
+          z-index: 1;
+        }
+        .stock-table th.product-col {
+          z-index: 3;
+        }
+        .stock-table td.num, .stock-table th.num {
+          text-align: right;
+        }
+        .stock-table th.filtered-col {
+          background: #232323;
+          font-weight: 700;
+        }
+        .stock-table td.filtered-col {
+          background: rgba(255,255,255,0.03);
+          font-weight: 700;
+        }
+        .stock-table tr:last-child td {
+          border-bottom: none;
+        }
+      </style>
       <div class="toolbar">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600;">
           Location
           <select id="locSelect">${locations.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select>
         </label>
       </div>
-           <div class="panel" style="overflow:auto;max-height:70vh;">
-        <table id="stockTable" style="min-width:800px;border-collapse:separate;border-spacing:0;">
+      <div class="stock-panel">
+        <table class="stock-table">
           <thead id="stockHead"></thead>
           <tbody id="stockBody"></tbody>
         </table>
@@ -36,7 +89,6 @@ export async function render(root) {
 
     function renderForLocation(locationId) {
       const filteredLoc = locations.find(l => l.id === locationId);
-      // build column order: filtered first, then Home Stores, then other consignees (excluding filtered)
       const orderedLocations = [];
       if (filteredLoc) orderedLocations.push(filteredLoc);
       homeStores.forEach(l => { if (l.id !== locationId) orderedLocations.push(l); });
@@ -45,21 +97,20 @@ export async function render(root) {
       // header
       root.querySelector('#stockHead').innerHTML = `
         <tr>
-          <th style="position:sticky;left:0;background:var(--panel);z-index:1;">Product / Variant</th>
-          ${orderedLocations.map(l => `<th class="num" style="${l.id === locationId ? 'background:rgba(255,255,255,0.03);font-weight:700;' : ''}">${l.name}${l.id === locationId ? ' ★' : ''}</th>`).join('')}
+          <th class="product-col">Product / Variant</th>
+          ${orderedLocations.map(l => `<th class="num ${l.id === locationId ? 'filtered-col' : ''}">${l.name}${l.id === locationId ? ' ★' : ''}</th>`).join('')}
           <th class="num" style="font-weight:700;">Total</th>
         </tr>
       `;
 
-      // rows: only products with qty != 0 at the filtered location
+      // rows
       const rows = stock.filter(r => r.location_id === locationId && r.qty !== 0);
       const body = root.querySelector('#stockBody');
       if (rows.length === 0) {
-        body.innerHTML = `<tr><td colspan="${orderedLocations.length + 2}" style="color:var(--muted);text-align:center;">No stock at this location.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="${orderedLocations.length + 2}" style="color:var(--muted);text-align:center;padding:20px;">No stock at this location.</td></tr>`;
         return;
       }
 
-      // dedupe: same product might appear multiple times in `stock` (unlikely but safe)
       const seenProducts = new Set();
       const uniqueRows = [];
       rows.forEach(r => {
@@ -75,12 +126,11 @@ export async function render(root) {
         const total = Object.values(productStock).reduce((s, v) => s + v, 0);
         const cells = orderedLocations.map(l => {
           const qty = productStock[l.id] || 0;
-          const isFiltered = l.id === locationId;
-          const style = isFiltered ? 'background:rgba(255,255,255,0.03);font-weight:700;' : '';
-          return `<td class="num" style="${style}">${qty || ''}</td>`;
+          const cls = l.id === locationId ? 'num filtered-col' : 'num';
+          return `<td class="${cls}">${qty || ''}</td>`;
         }).join('');
         return `<tr>
-          <td style="position:sticky;left:0;background:var(--panel);">${p.style_name} — ${p.color} ${p.size}</td>
+          <td class="product-col">${p.style_name} — ${p.color} ${p.size}</td>
           ${cells}
           <td class="num" style="font-weight:700;">${total || ''}</td>
         </tr>`;
