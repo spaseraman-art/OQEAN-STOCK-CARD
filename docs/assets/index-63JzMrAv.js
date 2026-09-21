@@ -391,7 +391,7 @@ SKUs not found: ${l.join(", ")}`),alert(u)}catch(c){alert("Failed to import: "+c
       <div class="panel">
         <div class="panel-head"><h3>Recent Sales</h3></div>
         <table>
-          <thead><tr><th>Date</th><th>Location</th><th>Product</th><th>Qty</th></tr></thead>
+          <thead><tr><th>Ref</th><th>Date</th><th>Location</th><th>Product</th><th>Qty</th></tr></thead>
           <tbody id="salesBody">
             ${n.map(l=>`
               <tr class="hoverable" data-id="${l.id}">
