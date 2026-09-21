@@ -26,8 +26,8 @@ export async function render(root) {
           <select id="locSelect">${locations.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select>
         </label>
       </div>
-      <div class="panel" style="overflow-x:auto;">
-        <table id="stockTable" style="min-width:800px;">
+           <div class="panel" style="overflow:auto;max-height:70vh;">
+        <table id="stockTable" style="min-width:800px;border-collapse:separate;border-spacing:0;">
           <thead id="stockHead"></thead>
           <tbody id="stockBody"></tbody>
         </table>
