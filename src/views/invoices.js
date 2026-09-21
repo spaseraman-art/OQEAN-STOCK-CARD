@@ -14,10 +14,10 @@ export async function render(root) {
           <thead><tr><th>Ref</th><th>Consignee</th><th>Period</th><th>Total Sales</th><th>Commission</th><th>Net to OQEAN</th><th>Due</th><th>Status</th></tr></thead>
           <tbody>
             ${invoices.map(inv => `
-                     <tr class="hoverable" data-id="${inv.id}" ${inv.status==='Void' ? 'style="opacity:0.5;"' : ''}>
+              <tr class="hoverable" data-id="${inv.id}" ${inv.status==='Void' ? 'style="opacity:0.5;"' : ''}>
                 <td>${inv.ref}</td><td>${inv.locations.name}</td><td>${inv.period_month.slice(0,7)}</td>
                 <td>${fmtRp(inv.total_sales)}</td><td>${inv.commission_pct}%</td><td>${fmtRp(inv.net_amount)}</td>
-<td>${inv.due_date}</td><td><span class="badge ${inv.status==='Paid'?'sent':inv.status==='Overdue'?'pending':inv.status==='Void'?'draft':'draft'}">${inv.status}</span></td>
+                <td>${inv.due_date}</td><td><span class="badge ${inv.status==='Paid'?'sent':inv.status==='Overdue'?'pending':'draft'}">${inv.status}</span></td>
               </tr>`).join('') || '<tr><td colspan="8" style="color:var(--muted);text-align:center;">No invoices yet.</td></tr>'}
           </tbody>
         </table>
@@ -102,7 +102,7 @@ function renderBuilder(root, consignees) {
       const body = builderArea.querySelector('#invItemsBody');
       body.innerHTML = pulledSales.map(s =>
         `<tr><td>${s.sale_date}</td><td>${s.products.style_name} — ${s.products.color} ${s.products.size}</td><td>${s.qty}</td><td>${fmtRp(s.unit_price)}</td><td>${fmtRp(s.qty*s.unit_price)}</td></tr>`
-      ).join('') || `<tr><td colspan="5" style="color:var(--muted);text-align:center;">No sales found for this period.</td></tr>`;
+      ).join('') || `<tr><td colspan="5" style="color:var(--muted);text-align:center;">No uninvoiced sales for this period.</td></tr>`;
       updateTotals();
     } catch (err) {
       alert('Failed to pull sales: ' + err.message);
@@ -155,8 +155,8 @@ async function renderDetail(root, id) {
           <div class="card"><div class="label">Commission</div><div class="value">${fmtRp(full.commission_amt)}</div></div>
           <div class="card"><div class="label">Net to OQEAN</div><div class="value" style="color:var(--good);">${fmtRp(full.net_amount)}</div></div>
         </div>
-                <div class="panel" style="padding:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          ${full.status === 'Void' 
+        <div class="panel" style="padding:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          ${full.status === 'Void'
             ? `<div style="color:var(--muted);">Voided${full.voided_at ? ' on ' + new Date(full.voided_at).toLocaleDateString() : ''}${full.void_reason ? ' — ' + full.void_reason : ''}</div>`
             : `<select id="statusSel"><option ${full.status==='Unpaid'?'selected':''}>Unpaid</option><option ${full.status==='Overdue'?'selected':''}>Overdue</option><option ${full.status==='Paid'?'selected':''}>Paid</option></select>
                <input type="date" id="paymentDate" value="${full.payment_date || ''}">
@@ -166,24 +166,28 @@ async function renderDetail(root, id) {
           <button class="btn secondary" id="printInvBtn">🖨️ Print</button>
           ${full.status !== 'Void' ? `<button class="btn secondary" id="voidInvBtn" style="color:#e0603d;">🚫 Void Invoice</button>` : ''}
         </div>
+      </div>
     `;
     viewArea.querySelector('#closeInvDetail').addEventListener('click', () => { viewArea.innerHTML = ''; });
     viewArea.querySelector('#printInvBtn').addEventListener('click', () => printInvoice(full));
-      viewArea.querySelector('#updateStatusBtn').addEventListener('click', async () => {
-      try {
-        await updateInvoiceStatus(full.id, viewArea.querySelector('#statusSel').value, viewArea.querySelector('#paymentDate').value);
-        await render(root);
-      } catch (err) {
-        alert('Failed to update: ' + err.message);
-      }
-    });
 
-    // Void invoice
+    const statusBtn = viewArea.querySelector('#updateStatusBtn');
+    if (statusBtn) {
+      statusBtn.addEventListener('click', async () => {
+        try {
+          await updateInvoiceStatus(full.id, viewArea.querySelector('#statusSel').value, viewArea.querySelector('#paymentDate').value);
+          await render(root);
+        } catch (err) {
+          alert('Failed to update: ' + err.message);
+        }
+      });
+    }
+
     const voidBtn = viewArea.querySelector('#voidInvBtn');
     if (voidBtn) {
       voidBtn.addEventListener('click', async () => {
         const reason = prompt(`Void invoice ${full.ref}?\n\nSales on this invoice will be released for re-invoicing.\n\nOptional reason:`, '');
-        if (reason === null) return; // user cancelled
+        if (reason === null) return;
         try {
           await voidInvoice(full.id, reason || null);
           viewArea.innerHTML = '';
@@ -196,23 +200,4 @@ async function renderDetail(root, id) {
   } catch (err) {
     viewArea.innerHTML = `<div class="error-msg">Failed to load invoice: ${err.message}</div>`;
   }
-}
-export async function voidInvoice(invoiceId, reason) {
-  // 1. Delete invoice_items so the sales are freed up for re-invoicing
-  const { error: delErr } = await supabase
-    .from('invoice_items')
-    .delete()
-    .eq('invoice_id', invoiceId);
-  if (delErr) throw delErr;
-
-  // 2. Mark the invoice as Void (keep the row for audit trail)
-  const { error } = await supabase
-    .from('invoices')
-    .update({
-      status: 'Void',
-      voided_at: new Date().toISOString(),
-      void_reason: reason || null,
-    })
-    .eq('id', invoiceId);
-  if (error) throw error;
 }
