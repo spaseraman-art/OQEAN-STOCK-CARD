@@ -117,8 +117,8 @@ export async function render(root) {
 
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    function renderPivotTable(year, pivot) {
-      const rows = Object.values(pivot.byLoc).filter(r => r.total > 0 || true); // keep all
+        function renderPivotTable(year, pivot) {
+      const rows = Object.values(pivot.byLoc);
       return `
         <div class="panel" style="margin-bottom:16px;overflow-x:auto;">
           <div class="panel-head"><h3>${year} — Sales Qty by Store &amp; Month</h3></div>
@@ -133,13 +133,13 @@ export async function render(root) {
             <tbody>
               ${rows.map(r => `<tr>
                 <td style="position:sticky;left:0;background:var(--panel);">${r.name}</td>
-                ${r.months.map(v => `<td class="num">${v || '–'}</td>`).join('')}
-                <td class="num" style="font-weight:700;">${r.total || '–'}</td>
+                ${r.months.map(v => `<td class="num">${v || ''}</td>`).join('')}
+                <td class="num" style="font-weight:700;">${r.total || ''}</td>
               </tr>`).join('')}
               <tr style="border-top:2px solid var(--border);">
                 <td style="position:sticky;left:0;background:var(--panel);font-weight:700;">Total</td>
-                ${pivot.monthTotals.map(v => `<td class="num" style="font-weight:700;">${v || '–'}</td>`).join('')}
-                <td class="num" style="font-weight:700;">${pivot.grandTotal || '–'}</td>
+                ${pivot.monthTotals.map(v => `<td class="num" style="font-weight:700;">${v || ''}</td>`).join('')}
+                <td class="num" style="font-weight:700;">${pivot.grandTotal || ''}</td>
               </tr>
             </tbody>
           </table>
