@@ -180,10 +180,11 @@ function renderEdit(root, sale, locations) {
   editArea.innerHTML = `
     <div class="builder show" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto;">
       <div style="background:var(--panel);max-width:600px;width:100%;border-radius:8px;padding:20px;">
-        <div class="toolbar" style="justify-content:space-between;margin-bottom:12px;">
+               <div class="toolbar" style="justify-content:space-between;margin-bottom:12px;">
           <div style="font-weight:700;">Edit ${sale.ref || 'Sale'}</div>
           <button class="btn secondary" id="closeEdit">✕ Close</button>
         </div>
+        ${sale.invoiced ? '<div style="background:rgba(224,96,61,0.15);border-left:3px solid #e0603d;padding:10px 12px;margin-bottom:12px;font-size:12px;">⚠ This sale is on an invoice. Editing it won\'t change that invoice. To re-bill, void the invoice from the Invoices page, then create a new one.</div>' : ''}
         <form class="entry-form">
           <label>Location<select id="editLoc">${locations.filter(l=>l.type==='Consignment Store').map(l => `<option value="${l.id}" ${l.id===sale.location_id?'selected':''}>${l.name}</option>`).join('')}</select></label>
           <label>Qty<input type="number" id="editQty" value="${sale.qty}" min="1"></label>
