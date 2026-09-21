@@ -170,9 +170,13 @@ export async function getSales() {
 }
 
 export async function createSale({ location_id, product_id, qty, unit_price, sale_date, note }) {
+  const yyyymm = sale_date.slice(0, 7).replace('-', '');   // "202608"
+  const n = await nextCounter('sale_' + yyyymm);
+  const ref = `SAL-${yyyymm}-${String(n).padStart(4, '0')}`;
+
   const { data: sale, error } = await supabase
     .from('sales')
-    .insert({ location_id, product_id, qty, unit_price, sale_date, note })
+    .insert({ ref, location_id, product_id, qty, unit_price, sale_date, note })
     .select()
     .single();
   if (error) throw error;
