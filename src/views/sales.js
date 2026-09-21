@@ -25,10 +25,10 @@ export async function render(root) {
         <table>
           <thead><tr><th>Ref</th><th>Date</th><th>Location</th><th>Product</th><th>Qty</th></tr></thead>
           <tbody id="salesBody">
-            ${sales.map(s => `
+                       ${sales.map(s => `
               <tr class="hoverable" data-id="${s.id}">
-                <td>${s.sale_date}</td><td>${s.locations.name}</td><td>${s.products.style_name} — ${s.products.color} ${s.products.size}</td><td>${s.qty}</td>
-              </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted);text-align:center;">No sales yet.</td></tr>'}
+                <td>${s.ref || '—'}</td><td>${s.sale_date}</td><td>${s.locations.name}</td><td>${s.products.style_name} — ${s.products.color} ${s.products.size}</td><td>${s.qty}</td>
+              </tr>`).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center;">No sales yet.</td></tr>'}
           </tbody>
         </table>
       </div>
