@@ -36,7 +36,6 @@ export async function createProduct(p) {
 }
 
 /* ---------- Stock (derived from the movements ledger) ---------- */
-// Returns [{ product_id, location_id, qty }]
 export async function getCurrentStock() {
   const { data, error } = await supabase.from('v_current_stock').select('*');
   if (error) throw error;
@@ -168,8 +167,8 @@ export async function getSales() {
   if (error) throw error;
   return data;
 }
+
 export async function getSalesFiltered({ locationId, month, invoiced, search, limit = 50, offset = 0 } = {}) {
-  // 1. Get set of already-invoiced sale ids
   const { data: billed, error: billedErr } = await supabase
     .from('invoice_items')
     .select('sale_id')
@@ -177,7 +176,6 @@ export async function getSalesFiltered({ locationId, month, invoiced, search, li
   if (billedErr) throw billedErr;
   const billedSet = new Set(billed.map(r => r.sale_id));
 
-  // 2. Build the query
   let query = supabase
     .from('sales')
     .select('*, locations(name), products(sku, style_name, color, size)', { count: 'exact' })
@@ -193,21 +191,14 @@ export async function getSalesFiltered({ locationId, month, invoiced, search, li
     const end = `${month}-${String(lastDay).padStart(2, '0')}`;
     query = query.gte('sale_date', start).lte('sale_date', end);
   }
-  if (search && search.trim()) {
-    // search by ref, or product style name — client-side for product name since it's a join
-    // we do ref here, product search happens post-fetch
-    query = query.ilike('ref', `%${search.trim()}%`);
-  }
 
   const { data, error, count } = await query;
   if (error) throw error;
 
-  // 3. Attach invoiced flag + filter if needed
   let rows = data.map(r => ({ ...r, invoiced: billedSet.has(r.id) }));
   if (invoiced === 'invoiced') rows = rows.filter(r => r.invoiced);
   if (invoiced === 'uninvoiced') rows = rows.filter(r => !r.invoiced);
 
-  // 4. Product-name search (post-fetch, since products is a join)
   if (search && search.trim()) {
     const q = search.trim().toLowerCase();
     rows = rows.filter(r =>
@@ -219,8 +210,9 @@ export async function getSalesFiltered({ locationId, month, invoiced, search, li
 
   return { rows, total: count ?? rows.length };
 }
+
 export async function createSale({ location_id, product_id, qty, unit_price, sale_date, note }) {
-  const yyyymm = sale_date.slice(0, 7).replace('-', '');   // "202608"
+  const yyyymm = sale_date.slice(0, 7).replace('-', '');
   const n = await nextCounter('sale_' + yyyymm);
   const ref = `SAL-${yyyymm}-${String(n).padStart(4, '0')}`;
 
@@ -242,7 +234,6 @@ export async function updateSale(id, patch) {
   const { error } = await supabase.from('sales').update(patch).eq('id', id);
   if (error) throw error;
 
-  // keep the stock ledger in sync: replace the old movement with one reflecting the new qty/location
   if ('qty' in patch || 'location_id' in patch) {
     const { data: sale, error: fetchError } = await supabase.from('sales').select('*').eq('id', id).single();
     if (fetchError) throw fetchError;
@@ -255,7 +246,6 @@ export async function updateSale(id, patch) {
 }
 
 export async function deleteSale(id) {
-  // remove the associated stock movement too, so deleting a sale doesn't leave stock permanently reduced
   await supabase.from('stock_movements').delete().eq('reference_id', id).eq('movement_type', 'sale');
   const { error } = await supabase.from('sales').delete().eq('id', id);
   if (error) throw error;
@@ -301,12 +291,25 @@ export async function getInvoices() {
 }
 
 export async function getSalesForPeriod(locationId, monthStartIso, monthEndIso) {
-  const { data, error } = await supabase
+  const { data: billed, error: billedErr } = await supabase
+    .from('invoice_items')
+    .select('sale_id')
+    .not('sale_id', 'is', null);
+  if (billedErr) throw billedErr;
+  const billedIds = billed.map(r => r.sale_id);
+
+  let query = supabase
     .from('sales')
     .select('*, products(sku, style_name, color, size)')
     .eq('location_id', locationId)
     .gte('sale_date', monthStartIso)
     .lte('sale_date', monthEndIso);
+
+  if (billedIds.length > 0) {
+    query = query.not('id', 'in', `(${billedIds.join(',')})`);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data;
 }
@@ -345,15 +348,14 @@ export async function updateInvoiceStatus(id, status, payment_date) {
   const { error } = await supabase.from('invoices').update({ status, payment_date: payment_date || null }).eq('id', id);
   if (error) throw error;
 }
+
 export async function voidInvoice(invoiceId, reason) {
-  // 1. Delete invoice_items so the sales are freed up for re-invoicing
   const { error: delErr } = await supabase
     .from('invoice_items')
     .delete()
     .eq('invoice_id', invoiceId);
   if (delErr) throw delErr;
 
-  // 2. Mark the invoice as Void (keep the row for audit trail)
   const { error } = await supabase
     .from('invoices')
     .update({
@@ -364,6 +366,7 @@ export async function voidInvoice(invoiceId, reason) {
     .eq('id', invoiceId);
   if (error) throw error;
 }
+
 export async function getInvoiceWithItems(id) {
   const { data, error } = await supabase
     .from('invoices')
