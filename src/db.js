@@ -164,7 +164,7 @@ export async function getSales() {
   const { data, error } = await supabase
     .from('sales')
     .select('*, locations(name), products(sku, style_name, color, size)')
-    .order('sale_date', { ascending: false });
+    .order('ref', { ascending: false });
   if (error) throw error;
   return data;
 }
