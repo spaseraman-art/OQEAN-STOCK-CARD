@@ -168,7 +168,57 @@ export async function getSales() {
   if (error) throw error;
   return data;
 }
+export async function getSalesFiltered({ locationId, month, invoiced, search, limit = 50, offset = 0 } = {}) {
+  // 1. Get set of already-invoiced sale ids
+  const { data: billed, error: billedErr } = await supabase
+    .from('invoice_items')
+    .select('sale_id')
+    .not('sale_id', 'is', null);
+  if (billedErr) throw billedErr;
+  const billedSet = new Set(billed.map(r => r.sale_id));
 
+  // 2. Build the query
+  let query = supabase
+    .from('sales')
+    .select('*, locations(name), products(sku, style_name, color, size)', { count: 'exact' })
+    .order('sale_date', { ascending: false })
+    .order('ref', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (locationId && locationId !== 'all') query = query.eq('location_id', locationId);
+  if (month) {
+    const start = `${month}-01`;
+    const [y, m] = month.split('-').map(Number);
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const end = `${month}-${String(lastDay).padStart(2, '0')}`;
+    query = query.gte('sale_date', start).lte('sale_date', end);
+  }
+  if (search && search.trim()) {
+    // search by ref, or product style name — client-side for product name since it's a join
+    // we do ref here, product search happens post-fetch
+    query = query.ilike('ref', `%${search.trim()}%`);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  // 3. Attach invoiced flag + filter if needed
+  let rows = data.map(r => ({ ...r, invoiced: billedSet.has(r.id) }));
+  if (invoiced === 'invoiced') rows = rows.filter(r => r.invoiced);
+  if (invoiced === 'uninvoiced') rows = rows.filter(r => !r.invoiced);
+
+  // 4. Product-name search (post-fetch, since products is a join)
+  if (search && search.trim()) {
+    const q = search.trim().toLowerCase();
+    rows = rows.filter(r =>
+      (r.ref || '').toLowerCase().includes(q) ||
+      (r.products?.style_name || '').toLowerCase().includes(q) ||
+      (r.products?.sku || '').toLowerCase().includes(q)
+    );
+  }
+
+  return { rows, total: count ?? rows.length };
+}
 export async function createSale({ location_id, product_id, qty, unit_price, sale_date, note }) {
   const yyyymm = sale_date.slice(0, 7).replace('-', '');   // "202608"
   const n = await nextCounter('sale_' + yyyymm);
