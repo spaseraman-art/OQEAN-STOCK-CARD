@@ -393,10 +393,10 @@ SKUs not found: ${l.join(", ")}`),alert(u)}catch(c){alert("Failed to import: "+c
         <table>
           <thead><tr><th>Ref</th><th>Date</th><th>Location</th><th>Product</th><th>Qty</th></tr></thead>
           <tbody id="salesBody">
-            ${n.map(l=>`
+                       ${n.map(l=>`
               <tr class="hoverable" data-id="${l.id}">
-                <td>${l.sale_date}</td><td>${l.locations.name}</td><td>${l.products.style_name} — ${l.products.color} ${l.products.size}</td><td>${l.qty}</td>
-              </tr>`).join("")||'<tr><td colspan="4" style="color:var(--muted);text-align:center;">No sales yet.</td></tr>'}
+                <td>${l.ref||"—"}</td><td>${l.sale_date}</td><td>${l.locations.name}</td><td>${l.products.style_name} — ${l.products.color} ${l.products.size}</td><td>${l.qty}</td>
+              </tr>`).join("")||'<tr><td colspan="5" style="color:var(--muted);text-align:center;">No sales yet.</td></tr>'}
           </tbody>
         </table>
       </div>
