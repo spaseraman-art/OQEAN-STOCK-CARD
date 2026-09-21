@@ -182,23 +182,78 @@ ${x}`}class lt extends Error{constructor({message:t,code:r,cause:a,name:n}){var 
       </div>
     `}catch(a){e.innerHTML=`<div class="error-msg">Failed to load summary: ${a.message}</div>`}}const u1=Object.freeze(Object.defineProperty({__proto__:null,render:l1},Symbol.toStringTag,{value:"Module"}));async function f1(e){e.innerHTML='<div class="loading">Loading…</div>';try{let l=function(u){const f=r.find(x=>x.id===u),h=[];f&&h.push(f),o.forEach(x=>{x.id!==u&&h.push(x)}),c.forEach(x=>{x.id!==u&&h.push(x)}),e.querySelector("#stockHead").innerHTML=`
         <tr>
-          <th style="position:sticky;left:0;background:var(--panel);z-index:1;">Product / Variant</th>
-          ${h.map(x=>`<th class="num" style="${x.id===u?"background:rgba(255,255,255,0.03);font-weight:700;":""}">${x.name}${x.id===u?" ★":""}</th>`).join("")}
+          <th class="product-col">Product / Variant</th>
+          ${h.map(x=>`<th class="num ${x.id===u?"filtered-col":""}">${x.name}${x.id===u?" ★":""}</th>`).join("")}
           <th class="num" style="font-weight:700;">Total</th>
         </tr>
-      `;const d=n.filter(x=>x.location_id===u&&x.qty!==0),v=e.querySelector("#stockBody");if(d.length===0){v.innerHTML=`<tr><td colspan="${h.length+2}" style="color:var(--muted);text-align:center;">No stock at this location.</td></tr>`;return}const p=new Set,m=[];d.forEach(x=>{p.has(x.product_id)||(p.add(x.product_id),m.push(x))}),v.innerHTML=m.map(x=>{const y=s[x.product_id];if(!y)return"";const g=i[x.product_id]||{},O=Object.values(g).reduce((R,S)=>R+S,0),D=h.map(R=>{const S=g[R.id]||0;return`<td class="num" style="${R.id===u?"background:rgba(255,255,255,0.03);font-weight:700;":""}">${S||""}</td>`}).join("");return`<tr>
-          <td style="position:sticky;left:0;background:var(--panel);">${y.style_name} — ${y.color} ${y.size}</td>
+      `;const d=n.filter(x=>x.location_id===u&&x.qty!==0),v=e.querySelector("#stockBody");if(d.length===0){v.innerHTML=`<tr><td colspan="${h.length+2}" style="color:var(--muted);text-align:center;padding:20px;">No stock at this location.</td></tr>`;return}const p=new Set,m=[];d.forEach(x=>{p.has(x.product_id)||(p.add(x.product_id),m.push(x))}),v.innerHTML=m.map(x=>{const y=s[x.product_id];if(!y)return"";const g=i[x.product_id]||{},O=Object.values(g).reduce((R,S)=>R+S,0),D=h.map(R=>{const S=g[R.id]||0;return`<td class="${R.id===u?"num filtered-col":"num"}">${S||""}</td>`}).join("");return`<tr>
+          <td class="product-col">${y.style_name} — ${y.color} ${y.size}</td>
           ${D}
           <td class="num" style="font-weight:700;">${O||""}</td>
         </tr>`}).join("")};var t=l;const[r,a,n]=await Promise.all([ta(),Ta(),an()]),s={};a.forEach(u=>s[u.id]=u);const i={};n.forEach(u=>{i[u.product_id]||(i[u.product_id]={}),i[u.product_id][u.location_id]=(i[u.product_id][u.location_id]||0)+u.qty});const o=r.filter(u=>u.type==="Main Warehouse").sort((u,f)=>u.name.localeCompare(f.name)),c=r.filter(u=>u.type!=="Main Warehouse").sort((u,f)=>u.name.localeCompare(f.name));e.innerHTML=`
+      <style>
+        .stock-panel {
+          overflow: auto;
+          max-height: 72vh;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+        }
+        .stock-table {
+          min-width: 800px;
+          border-collapse: separate;
+          border-spacing: 0;
+          width: 100%;
+        }
+        .stock-table th, .stock-table td {
+          padding: 10px 14px;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .stock-table th {
+          position: sticky;
+          top: 0;
+          background: var(--panel);
+          z-index: 2;
+          color: var(--muted);
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        .stock-table th.product-col,
+        .stock-table td.product-col {
+          position: sticky;
+          left: 0;
+          background: var(--panel);
+          z-index: 1;
+        }
+        .stock-table th.product-col {
+          z-index: 3;
+        }
+        .stock-table td.num, .stock-table th.num {
+          text-align: right;
+        }
+        .stock-table th.filtered-col {
+          background: #232323;
+          font-weight: 700;
+        }
+        .stock-table td.filtered-col {
+          background: rgba(255,255,255,0.03);
+          font-weight: 700;
+        }
+        .stock-table tr:last-child td {
+          border-bottom: none;
+        }
+      </style>
       <div class="toolbar">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600;">
           Location
           <select id="locSelect">${r.map(u=>`<option value="${u.id}">${u.name}</option>`).join("")}</select>
         </label>
       </div>
-           <div class="panel" style="overflow:auto;max-height:70vh;">
-        <table id="stockTable" style="min-width:800px;border-collapse:separate;border-spacing:0;">
+      <div class="stock-panel">
+        <table class="stock-table">
           <thead id="stockHead"></thead>
           <tbody id="stockBody"></tbody>
         </table>
