@@ -177,3 +177,22 @@ async function renderDetail(root, id) {
     viewArea.innerHTML = `<div class="error-msg">Failed to load invoice: ${err.message}</div>`;
   }
 }
+export async function voidInvoice(invoiceId, reason) {
+  // 1. Delete invoice_items so the sales are freed up for re-invoicing
+  const { error: delErr } = await supabase
+    .from('invoice_items')
+    .delete()
+    .eq('invoice_id', invoiceId);
+  if (delErr) throw delErr;
+
+  // 2. Mark the invoice as Void (keep the row for audit trail)
+  const { error } = await supabase
+    .from('invoices')
+    .update({
+      status: 'Void',
+      voided_at: new Date().toISOString(),
+      void_reason: reason || null,
+    })
+    .eq('id', invoiceId);
+  if (error) throw error;
+}
