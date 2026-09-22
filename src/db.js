@@ -35,7 +35,7 @@ export async function createProduct(p) {
   return data;
 }
 
-/* ---------- Stock (derived from the movements ledger) ---------- */
+/* ---------- Stock ---------- */
 export async function getCurrentStock() {
   const { data, error } = await supabase.from('v_current_stock').select('*');
   if (error) throw error;
@@ -58,7 +58,7 @@ export async function insertStockMovement({ product_id, location_id, qty_change,
   if (error) throw error;
 }
 
-/* ---------- Reference number counters ---------- */
+/* ---------- Counters ---------- */
 export async function nextCounter(key) {
   const { data, error } = await supabase.rpc('next_counter', { counter_key: key });
   if (error) throw error;
@@ -69,7 +69,7 @@ export async function nextCounter(key) {
 export async function getDeliveries() {
   const { data, error } = await supabase
     .from('deliveries')
-    .select('*, from_location:from_location_id(name), to_location:to_location_id(name), delivery_items(qty)')
+    .select('*, from_location:from_location_id(name), to_location:to_location_id(name), delivery_items(qty, unit_price)')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
@@ -78,7 +78,7 @@ export async function getDeliveries() {
 export async function getDeliveryWithItems(id) {
   const { data, error } = await supabase
     .from('deliveries')
-    .select('*, from_location:from_location_id(name), to_location:to_location_id(name), delivery_items(id, qty, product_id, products(sku, style_name, color, size))')
+    .select('*, from_location:from_location_id(name), to_location:to_location_id(name), delivery_items(id, qty, unit_price, product_id, products(sku, style_name, color, size))')
     .eq('id', id)
     .single();
   if (error) throw error;
@@ -97,7 +97,12 @@ export async function createDelivery({ type, from_location_id, to_location_id, s
     .single();
   if (error) throw error;
 
-  const rows = items.map(i => ({ delivery_id: delivery.id, product_id: i.product_id, qty: i.qty }));
+  const rows = items.map(i => ({
+    delivery_id: delivery.id,
+    product_id: i.product_id,
+    qty: i.qty,
+    unit_price: i.unit_price ?? null,
+  }));
   const { error: itemsError } = await supabase.from('delivery_items').insert(rows);
   if (itemsError) throw itemsError;
 
@@ -109,8 +114,15 @@ export async function updateDeliveryItemQty(itemId, qty) {
   if (error) throw error;
 }
 
-export async function addDeliveryItem(deliveryId, productId, qty) {
-  const { error } = await supabase.from('delivery_items').insert({ delivery_id: deliveryId, product_id: productId, qty });
+export async function updateDeliveryItemPrice(itemId, unit_price) {
+  const { error } = await supabase.from('delivery_items').update({ unit_price }).eq('id', itemId);
+  if (error) throw error;
+}
+
+export async function addDeliveryItem(deliveryId, productId, qty, unit_price) {
+  const { error } = await supabase
+    .from('delivery_items')
+    .insert({ delivery_id: deliveryId, product_id: productId, qty, unit_price: unit_price ?? null });
   if (error) throw error;
 }
 
@@ -119,10 +131,19 @@ export async function deleteDeliveryItem(itemId) {
   if (error) throw error;
 }
 
+export async function deleteDelivery(deliveryId) {
+  const { error: itemsErr } = await supabase.from('delivery_items').delete().eq('delivery_id', deliveryId);
+  if (itemsErr) throw itemsErr;
+  const { error } = await supabase.from('deliveries').delete().eq('id', deliveryId);
+  if (error) throw error;
+}
+
 export async function updateDeliveryDetails(id, { to_location_id, from_location_id, scheduled_date }) {
-  const patch = { scheduled_date };
+  const patch = {};
+  if (scheduled_date) patch.scheduled_date = scheduled_date;
   if (to_location_id) patch.to_location_id = to_location_id;
   if (from_location_id) patch.from_location_id = from_location_id;
+  if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from('deliveries').update(patch).eq('id', id);
   if (error) throw error;
 }
@@ -156,6 +177,23 @@ export async function advanceDeliveryStatus(delivery) {
     }
   }
   return nextStatus;
+}
+
+export async function voidDelivery(deliveryId, reason) {
+  const full = await getDeliveryWithItems(deliveryId);
+  if (!full) throw new Error('Delivery not found.');
+  if (full.status === 'Void') throw new Error('Already voided.');
+  if (full.status !== 'Approved') throw new Error('Only Approved deliveries can be voided. Draft can be edited or deleted; Sent is locked.');
+
+  const { error } = await supabase
+    .from('deliveries')
+    .update({
+      status: 'Void',
+      voided_at: new Date().toISOString(),
+      void_reason: reason || null,
+    })
+    .eq('id', deliveryId);
+  if (error) throw error;
 }
 
 /* ---------- Sales ---------- */
@@ -246,7 +284,20 @@ export async function updateSale(id, patch) {
 }
 
 export async function deleteSale(id) {
+  const { data: sale, error: fetchErr } = await supabase
+    .from('sales').select('*').eq('id', id).single();
+  if (fetchErr) throw fetchErr;
+
   await supabase.from('stock_movements').delete().eq('reference_id', id).eq('movement_type', 'sale');
+  await insertStockMovement({
+    product_id: sale.product_id,
+    location_id: sale.location_id,
+    qty_change: +sale.qty,
+    movement_type: 'sale_voided',
+    reference_id: sale.id,
+    note: `Sale ${sale.ref || id} voided — stock restored`,
+  });
+
   const { error } = await supabase.from('sales').delete().eq('id', id);
   if (error) throw error;
 }
