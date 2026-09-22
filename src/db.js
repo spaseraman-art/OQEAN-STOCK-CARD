@@ -92,7 +92,7 @@ export async function createDelivery({ type, from_location_id, to_location_id, s
 
   const { data: delivery, error } = await supabase
     .from('deliveries')
-    .insert({ ref, type, from_location_id, to_location_id, scheduled_date, status: 'Draft' })
+    .insert({ ref, type, from_location_id, to_location_id, delivery_date: scheduled_date, status: 'Draft' })
     .select()
     .single();
   if (error) throw error;
@@ -140,7 +140,7 @@ export async function deleteDelivery(deliveryId) {
 
 export async function updateDeliveryDetails(id, { to_location_id, from_location_id, scheduled_date }) {
   const patch = {};
-  if (scheduled_date) patch.scheduled_date = scheduled_date;
+  if (scheduled_date) patch.delivery_date = scheduled_date;
   if (to_location_id) patch.to_location_id = to_location_id;
   if (from_location_id) patch.from_location_id = from_location_id;
   if (Object.keys(patch).length === 0) return;
@@ -183,7 +183,7 @@ export async function voidDelivery(deliveryId, reason) {
   const full = await getDeliveryWithItems(deliveryId);
   if (!full) throw new Error('Delivery not found.');
   if (full.status === 'Void') throw new Error('Already voided.');
-  if (full.status !== 'Approved') throw new Error('Only Approved deliveries can be voided. Draft can be edited or deleted; Sent is locked.');
+  if (full.status !== 'Approved') throw new Error('Only Approved deliveries can be voided.');
 
   const { error } = await supabase
     .from('deliveries')
