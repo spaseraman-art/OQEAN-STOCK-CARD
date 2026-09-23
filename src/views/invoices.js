@@ -134,12 +134,14 @@ async function renderDetail(root, id) {
   viewArea.innerHTML = '<div class="loading">Loading…</div>';
   try {
     const full = await getInvoiceWithItems(id);
+    const isVoid = full.status === 'Void';
     viewArea.innerHTML = `
       <div class="builder show">
         <div class="toolbar" style="justify-content:space-between;">
           <div style="font-weight:700;">${full.ref} <span class="badge ${full.status==='Paid'?'sent':full.status==='Overdue'?'pending':'draft'}">${full.status}</span></div>
           <button class="btn secondary" id="closeInvDetail">✕ Close</button>
         </div>
+        ${isVoid ? `<div class="note" style="color:#e0603d;">Voided${full.voided_at ? ' on ' + new Date(full.voided_at).toLocaleDateString() : ''}${full.void_reason ? ' — ' + full.void_reason : ''}</div>` : ''}
         <div class="panel" style="padding:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
           <div><b style="color:var(--muted);font-size:11px;">Consignee</b><div>${full.locations.name}</div></div>
           <div><b style="color:var(--muted);font-size:11px;">Period</b><div>${full.period_month.slice(0,7)}</div></div>
@@ -155,16 +157,16 @@ async function renderDetail(root, id) {
           <div class="card"><div class="label">Commission</div><div class="value">${fmtRp(full.commission_amt)}</div></div>
           <div class="card"><div class="label">Net to OQEAN</div><div class="value" style="color:var(--good);">${fmtRp(full.net_amount)}</div></div>
         </div>
-        <div class="panel" style="padding:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          ${full.status === 'Void'
-            ? `<div style="color:var(--muted);">Voided${full.voided_at ? ' on ' + new Date(full.voided_at).toLocaleDateString() : ''}${full.void_reason ? ' — ' + full.void_reason : ''}</div>`
-            : `<select id="statusSel"><option ${full.status==='Unpaid'?'selected':''}>Unpaid</option><option ${full.status==='Overdue'?'selected':''}>Overdue</option><option ${full.status==='Paid'?'selected':''}>Paid</option></select>
-               <input type="date" id="paymentDate" value="${full.payment_date || ''}">
-               <button class="btn secondary" id="updateStatusBtn">Update Status</button>`}
-        </div>
+        ${!isVoid ? `
+          <div class="panel" style="padding:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <select id="statusSel"><option ${full.status==='Unpaid'?'selected':''}>Unpaid</option><option ${full.status==='Overdue'?'selected':''}>Overdue</option><option ${full.status==='Paid'?'selected':''}>Paid</option></select>
+            <input type="date" id="paymentDate" value="${full.payment_date || ''}">
+            <button class="btn secondary" id="updateStatusBtn">Update Status</button>
+          </div>
+        ` : ''}
         <div class="toolbar">
           <button class="btn secondary" id="printInvBtn">🖨️ Print</button>
-          ${full.status !== 'Void' ? `<button class="btn secondary" id="voidInvBtn" style="color:#e0603d;">🚫 Void Invoice</button>` : ''}
+          ${!isVoid ? `<button class="btn secondary" id="voidInvBtn" style="color:#e0603d;">🚫 Void Invoice</button>` : ''}
         </div>
       </div>
     `;
