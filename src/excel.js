@@ -4,10 +4,11 @@ export function exportDeliveriesList(deliveries) {
   const rows = deliveries.map(d => ({
     Type: d.type,
     Reference: d.ref,
-    From: d.from_location.name,
-    To: d.to_location.name,
-    Date: d.scheduled_date,
+    From: d.from_location?.name || '',
+    To: d.to_location?.name || '',
+    Date: d.delivery_date || '',
     'Total Items': d.delivery_items.reduce((s, i) => s + i.qty, 0),
+    'Total Value': d.delivery_items.reduce((s, i) => s + i.qty * (i.unit_price || 0), 0),
     Status: d.status,
   }));
   const sheet = XLSX.utils.json_to_sheet(rows);
@@ -23,7 +24,16 @@ export function exportDeliveryDetail(full) {
     Color: i.products.color,
     Size: i.products.size,
     Qty: i.qty,
+    'Unit Price': i.unit_price || 0,
+    Subtotal: i.qty * (i.unit_price || 0),
   }));
+
+  // blank row + totals row at the bottom
+  const totalQty = full.delivery_items.reduce((s, i) => s + i.qty, 0);
+  const totalValue = full.delivery_items.reduce((s, i) => s + i.qty * (i.unit_price || 0), 0);
+  rows.push({});
+  rows.push({ Qty: totalQty, Subtotal: totalValue });
+
   const sheet = XLSX.utils.json_to_sheet(rows);
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, full.ref.replace(/\//g, '-'));
