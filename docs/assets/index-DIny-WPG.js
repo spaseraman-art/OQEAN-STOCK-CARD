@@ -802,12 +802,13 @@ Optional reason:`,"");if(_!==null)try{await cf(s.id,_||null),r.innerHTML="",awai
       </div>
       <button class="btn" id="createInvBtn">Create Invoice</button>
     </div>
-  `;let i=[];r.querySelector("#cancelInv").addEventListener("click",()=>{r.innerHTML=""});const s=r.querySelector("#invConsignee"),a=r.querySelector("#commRate");a.value=((l=s.options[0])==null?void 0:l.dataset.pct)||40,s.addEventListener("change",()=>{a.value=s.options[s.selectedIndex].dataset.pct||40});function o(){const c=i.reduce((d,f)=>d+f.qty*f.unit_price,0),u=parseFloat(a.value)||0,h=Math.round(c*u/100);r.querySelector("#totSales").textContent=ve(c),r.querySelector("#commAmt").textContent=ve(h),r.querySelector("#netAmt").textContent=ve(c-h)}a.addEventListener("input",o),r.querySelector("#pullBtn").addEventListener("click",async()=>{const{start:c,end:u}=nl(r.querySelector("#invPeriod").value);try{i=await vf(s.value,c,u);const h=r.querySelector("#invItemsBody");h.innerHTML=i.map(d=>`<tr><td>${d.sale_date}</td><td>${d.products.style_name} — ${d.products.color} ${d.products.size}</td><td>${d.qty}</td><td>${ve(d.unit_price)}</td><td>${ve(d.qty*d.unit_price)}</td></tr>`).join("")||'<tr><td colspan="5" style="color:var(--muted);text-align:center;">No uninvoiced sales for this period.</td></tr>',o()}catch(h){alert("Failed to pull sales: "+h.message)}}),r.querySelector("#createInvBtn").addEventListener("click",async()=>{if(i.length===0){alert("Pull sales first — nothing to invoice.");return}try{const{start:c}=nl(r.querySelector("#invPeriod").value),u=await gf({consignee_id:s.value,period_month:c,issue_date:r.querySelector("#invIssue").value,due_date:r.querySelector("#invDue").value,commission_pct:parseFloat(a.value)||0,sales:i});alert(`${u.ref} created.`),await Gi(t)}catch(c){alert("Failed to create invoice: "+c.message)}})}async function Fx(t,e){const r=t.querySelector("#viewArea");r.innerHTML='<div class="loading">Loading…</div>';try{const n=await yf(e);r.innerHTML=`
+  `;let i=[];r.querySelector("#cancelInv").addEventListener("click",()=>{r.innerHTML=""});const s=r.querySelector("#invConsignee"),a=r.querySelector("#commRate");a.value=((l=s.options[0])==null?void 0:l.dataset.pct)||40,s.addEventListener("change",()=>{a.value=s.options[s.selectedIndex].dataset.pct||40});function o(){const c=i.reduce((d,f)=>d+f.qty*f.unit_price,0),u=parseFloat(a.value)||0,h=Math.round(c*u/100);r.querySelector("#totSales").textContent=ve(c),r.querySelector("#commAmt").textContent=ve(h),r.querySelector("#netAmt").textContent=ve(c-h)}a.addEventListener("input",o),r.querySelector("#pullBtn").addEventListener("click",async()=>{const{start:c,end:u}=nl(r.querySelector("#invPeriod").value);try{i=await vf(s.value,c,u);const h=r.querySelector("#invItemsBody");h.innerHTML=i.map(d=>`<tr><td>${d.sale_date}</td><td>${d.products.style_name} — ${d.products.color} ${d.products.size}</td><td>${d.qty}</td><td>${ve(d.unit_price)}</td><td>${ve(d.qty*d.unit_price)}</td></tr>`).join("")||'<tr><td colspan="5" style="color:var(--muted);text-align:center;">No uninvoiced sales for this period.</td></tr>',o()}catch(h){alert("Failed to pull sales: "+h.message)}}),r.querySelector("#createInvBtn").addEventListener("click",async()=>{if(i.length===0){alert("Pull sales first — nothing to invoice.");return}try{const{start:c}=nl(r.querySelector("#invPeriod").value),u=await gf({consignee_id:s.value,period_month:c,issue_date:r.querySelector("#invIssue").value,due_date:r.querySelector("#invDue").value,commission_pct:parseFloat(a.value)||0,sales:i});alert(`${u.ref} created.`),await Gi(t)}catch(c){alert("Failed to create invoice: "+c.message)}})}async function Fx(t,e){const r=t.querySelector("#viewArea");r.innerHTML='<div class="loading">Loading…</div>';try{const n=await yf(e),i=n.status==="Void";r.innerHTML=`
       <div class="builder show">
         <div class="toolbar" style="justify-content:space-between;">
           <div style="font-weight:700;">${n.ref} <span class="badge ${n.status==="Paid"?"sent":n.status==="Overdue"?"pending":"draft"}">${n.status}</span></div>
           <button class="btn secondary" id="closeInvDetail">✕ Close</button>
         </div>
+        ${i?`<div class="note" style="color:#e0603d;">Voided${n.voided_at?" on "+new Date(n.voided_at).toLocaleDateString():""}${n.void_reason?" — "+n.void_reason:""}</div>`:""}
         <div class="panel" style="padding:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
           <div><b style="color:var(--muted);font-size:11px;">Consignee</b><div>${n.locations.name}</div></div>
           <div><b style="color:var(--muted);font-size:11px;">Period</b><div>${n.period_month.slice(0,7)}</div></div>
@@ -816,28 +817,30 @@ Optional reason:`,"");if(_!==null)try{await cf(s.id,_||null),r.innerHTML="",awai
         </div>
         <div class="panel">
           <table><thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead>
-          <tbody>${n.invoice_items.map(a=>`<tr><td>${a.sale_date}</td><td>${a.products.style_name} — ${a.products.color} ${a.products.size}</td><td>${a.qty}</td><td>${ve(a.unit_price)}</td><td>${ve(a.qty*a.unit_price)}</td></tr>`).join("")}</tbody></table>
+          <tbody>${n.invoice_items.map(o=>`<tr><td>${o.sale_date}</td><td>${o.products.style_name} — ${o.products.color} ${o.products.size}</td><td>${o.qty}</td><td>${ve(o.unit_price)}</td><td>${ve(o.qty*o.unit_price)}</td></tr>`).join("")}</tbody></table>
         </div>
         <div class="cards" style="margin-bottom:0;">
           <div class="card"><div class="label">Total Sales</div><div class="value">${ve(n.total_sales)}</div></div>
           <div class="card"><div class="label">Commission</div><div class="value">${ve(n.commission_amt)}</div></div>
           <div class="card"><div class="label">Net to OQEAN</div><div class="value" style="color:var(--good);">${ve(n.net_amount)}</div></div>
         </div>
-        <div class="panel" style="padding:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          ${n.status==="Void"?`<div style="color:var(--muted);">Voided${n.voided_at?" on "+new Date(n.voided_at).toLocaleDateString():""}${n.void_reason?" — "+n.void_reason:""}</div>`:`<select id="statusSel"><option ${n.status==="Unpaid"?"selected":""}>Unpaid</option><option ${n.status==="Overdue"?"selected":""}>Overdue</option><option ${n.status==="Paid"?"selected":""}>Paid</option></select>
-               <input type="date" id="paymentDate" value="${n.payment_date||""}">
-               <button class="btn secondary" id="updateStatusBtn">Update Status</button>`}
-        </div>
+        ${i?"":`
+          <div class="panel" style="padding:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <select id="statusSel"><option ${n.status==="Unpaid"?"selected":""}>Unpaid</option><option ${n.status==="Overdue"?"selected":""}>Overdue</option><option ${n.status==="Paid"?"selected":""}>Paid</option></select>
+            <input type="date" id="paymentDate" value="${n.payment_date||""}">
+            <button class="btn secondary" id="updateStatusBtn">Update Status</button>
+          </div>
+        `}
         <div class="toolbar">
           <button class="btn secondary" id="printInvBtn">🖨️ Print</button>
-          ${n.status!=="Void"?'<button class="btn secondary" id="voidInvBtn" style="color:#e0603d;">🚫 Void Invoice</button>':""}
+          ${i?"":'<button class="btn secondary" id="voidInvBtn" style="color:#e0603d;">🚫 Void Invoice</button>'}
         </div>
       </div>
-    `,r.querySelector("#closeInvDetail").addEventListener("click",()=>{r.innerHTML=""}),r.querySelector("#printInvBtn").addEventListener("click",()=>Of(n));const i=r.querySelector("#updateStatusBtn");i&&i.addEventListener("click",async()=>{try{await mf(n.id,r.querySelector("#statusSel").value,r.querySelector("#paymentDate").value),await Gi(t)}catch(a){alert("Failed to update: "+a.message)}});const s=r.querySelector("#voidInvBtn");s&&s.addEventListener("click",async()=>{const a=prompt(`Void invoice ${n.ref}?
+    `,r.querySelector("#closeInvDetail").addEventListener("click",()=>{r.innerHTML=""}),r.querySelector("#printInvBtn").addEventListener("click",()=>Of(n));const s=r.querySelector("#updateStatusBtn");s&&s.addEventListener("click",async()=>{try{await mf(n.id,r.querySelector("#statusSel").value,r.querySelector("#paymentDate").value),await Gi(t)}catch(o){alert("Failed to update: "+o.message)}});const a=r.querySelector("#voidInvBtn");a&&a.addEventListener("click",async()=>{const o=prompt(`Void invoice ${n.ref}?
 
 Sales on this invoice will be released for re-invoicing.
 
-Optional reason:`,"");if(a!==null)try{await _f(n.id,a||null),r.innerHTML="",await Gi(t)}catch(o){alert("Failed to void: "+o.message)}})}catch(n){r.innerHTML=`<div class="error-msg">Failed to load invoice: ${n.message}</div>`}}const Lx=Object.freeze(Object.defineProperty({__proto__:null,render:Gi},Symbol.toStringTag,{value:"Module"}));async function _u(t){t.innerHTML='<div class="loading">Loading…</div>';try{let l=function(u){o=s.filter(d=>d.location_id===u).map(d=>({product_id:d.product_id,product:a[d.product_id],system_qty:d.qty})).filter(d=>d.product);const h=t.querySelector("#opnBody");h.innerHTML=o.map((d,f)=>`
+Optional reason:`,"");if(o!==null)try{await _f(n.id,o||null),r.innerHTML="",await Gi(t)}catch(l){alert("Failed to void: "+l.message)}})}catch(n){r.innerHTML=`<div class="error-msg">Failed to load invoice: ${n.message}</div>`}}const Lx=Object.freeze(Object.defineProperty({__proto__:null,render:Gi},Symbol.toStringTag,{value:"Module"}));async function _u(t){t.innerHTML='<div class="loading">Loading…</div>';try{let l=function(u){o=s.filter(d=>d.location_id===u).map(d=>({product_id:d.product_id,product:a[d.product_id],system_qty:d.qty})).filter(d=>d.product);const h=t.querySelector("#opnBody");h.innerHTML=o.map((d,f)=>`
         <tr data-idx="${f}">
           <td>${d.product.style_name} — ${d.product.color} ${d.product.size}</td>
           <td>${d.system_qty}</td>
