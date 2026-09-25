@@ -97,6 +97,10 @@ function renderBuilder(root, initialType) {
   const builderArea = root.querySelector('#builderArea');
   let type = initialType;
   let lines = [];
+  // persisted selections across re-renders
+  let fromId = locationsCache[0]?.id || '';
+  let toId = locationsCache[1]?.id || locationsCache[0]?.id || '';
+  let dateVal = new Date().toISOString().slice(0, 10);
 
   const productOptions = productsCache.map(p => ({
     id: p.id,
@@ -126,12 +130,18 @@ function renderBuilder(root, initialType) {
           <h4>1. Details</h4>
           <form class="entry-form" style="grid-template-columns:repeat(3,1fr);">
             <label>From
-              <select id="fromSel">${locationsCache.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select>
+              <select id="fromSel">
+                ${locationsCache.map(l => `<option value="${l.id}" ${l.id === fromId ? 'selected' : ''}>${l.name}</option>`).join('')}
+              </select>
             </label>
             <label>To
-              <select id="toSel">${locationsCache.map((l, i) => `<option value="${l.id}" ${i === 1 ? 'selected' : ''}>${l.name}</option>`).join('')}</select>
+              <select id="toSel">
+                ${locationsCache.map(l => `<option value="${l.id}" ${l.id === toId ? 'selected' : ''}>${l.name}</option>`).join('')}
+              </select>
             </label>
-            <label>Date<input type="date" id="dateSel" value="${new Date().toISOString().slice(0,10)}"></label>
+            <label>Date
+              <input type="date" id="dateSel" value="${dateVal}">
+            </label>
             <label class="full">Type
               <div class="pill-toggle" style="margin-top:6px;">
                 <button type="button" class="sub-btn ${type === 'Delivery' ? 'active' : ''}" data-t="Delivery">Delivery</button>
@@ -206,6 +216,11 @@ function renderBuilder(root, initialType) {
         <button class="btn" id="createBtn">Create ${type} (Draft)</button>
       </div>
     `;
+
+    // bind persistence listeners
+    builderArea.querySelector('#fromSel').addEventListener('change', (e) => { fromId = e.target.value; });
+    builderArea.querySelector('#toSel').addEventListener('change', (e) => { toId = e.target.value; });
+    builderArea.querySelector('#dateSel').addEventListener('change', (e) => { dateVal = e.target.value; });
 
     const searchEl = builderArea.querySelector('#fSearch');
     const styleEl = builderArea.querySelector('#fStyle');
@@ -282,15 +297,13 @@ function renderBuilder(root, initialType) {
 
     builderArea.querySelector('#createBtn').addEventListener('click', async () => {
       if (lines.length === 0) { alert('Add at least one item.'); return; }
-      const fromId = builderArea.querySelector('#fromSel').value;
-      const toId = builderArea.querySelector('#toSel').value;
       if (fromId === toId) { alert('From and To must be different locations.'); return; }
       try {
         const delivery = await createDelivery({
           type,
           from_location_id: fromId,
           to_location_id: toId,
-          scheduled_date: builderArea.querySelector('#dateSel').value,
+          scheduled_date: dateVal,
           items: lines,
         });
         alert(`${delivery.ref} created as Draft.`);
