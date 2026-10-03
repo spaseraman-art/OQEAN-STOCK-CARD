@@ -149,11 +149,31 @@ export async function updateDeliveryDetails(id, { to_location_id, from_location_
 }
 
 export async function advanceDeliveryStatus(delivery) {
-  const nextStatus = delivery.status === 'Draft' ? 'Approved' : 'Sent';
+  // Re-fetch fresh status to avoid acting on stale data
+  const { data: fresh, error: fetchErr } = await supabase
+    .from('deliveries')
+    .select('status')
+    .eq('id', delivery.id)
+    .single();
+  if (fetchErr) throw fetchErr;
+
+  const currentStatus = fresh.status;
+  if (currentStatus === 'Sent') throw new Error('Delivery is already Sent.');
+  if (currentStatus === 'Void') throw new Error('Cannot advance a voided delivery.');
+
+  const nextStatus = currentStatus === 'Draft' ? 'Approved' : 'Sent';
   const { error } = await supabase.from('deliveries').update({ status: nextStatus }).eq('id', delivery.id);
   if (error) throw error;
 
   if (nextStatus === 'Sent') {
+    // Safety: check no movements already exist for this delivery
+    const { count, error: checkErr } = await supabase
+      .from('stock_movements')
+      .select('id', { count: 'exact', head: true })
+      .eq('reference_id', delivery.id);
+    if (checkErr) throw checkErr;
+    if (count > 0) throw new Error('Stock movements already exist for this delivery.');
+
     const full = await getDeliveryWithItems(delivery.id);
     const outType = full.type === 'Return' ? 'return_out' : 'delivery_out';
     const inType = full.type === 'Return' ? 'return_in' : 'delivery_in';
