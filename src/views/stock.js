@@ -1,4 +1,5 @@
 import { getLocations, getProducts, getCurrentStock } from '../db.js';
+import { exportStockMatrix } from '../excel.js';
 
 export async function render(root) {
   root.innerHTML = '<div class="loading">Loading…</div>';
@@ -86,6 +87,9 @@ export async function render(root) {
           <span style="font-size:12px;color:var(--muted);font-weight:600;">Stock Value</span>
           <span id="locValue" style="font-size:22px;font-weight:700;">—</span>
         </div>
+        <div style="margin-left:auto;">
+          <button class="btn secondary" id="exportStockBtn">⬇️ Export to Excel</button>
+        </div>
       </div>
       <div class="stock-panel">
         <table class="stock-table">
@@ -157,6 +161,9 @@ export async function render(root) {
     }
 
     root.querySelector('#locSelect').addEventListener('change', (e) => renderForLocation(e.target.value));
+    root.querySelector('#exportStockBtn').addEventListener('click', () => {
+      exportStockMatrix(products, stock, locations);
+    });
     if (locations[0]) renderForLocation(locations[0].id);
   } catch (err) {
     root.innerHTML = `<div class="error-msg">Failed to load stock: ${err.message}</div>`;
