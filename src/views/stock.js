@@ -102,7 +102,6 @@ export async function render(root) {
     function renderForLocation(locationId) {
       const filteredLoc = locations.find(l => l.id === locationId);
 
-      // ---- total for this location only ----
       const locRows = stock.filter(r => r.location_id === locationId);
       const locTotal = locRows.reduce((s, r) => s + r.qty, 0);
       const locValue = locRows.reduce((s, r) => {
@@ -117,7 +116,6 @@ export async function render(root) {
       homeStores.forEach(l => { if (l.id !== locationId) orderedLocations.push(l); });
       consignees.forEach(l => { if (l.id !== locationId) orderedLocations.push(l); });
 
-      // header
       root.querySelector('#stockHead').innerHTML = `
         <tr>
           <th class="product-col">Product / Variant</th>
@@ -126,7 +124,6 @@ export async function render(root) {
         </tr>
       `;
 
-      // rows
       const rows = stock.filter(r => r.location_id === locationId && r.qty !== 0);
       const body = root.querySelector('#stockBody');
       if (rows.length === 0) {
