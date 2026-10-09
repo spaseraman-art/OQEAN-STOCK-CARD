@@ -417,13 +417,38 @@ function renderBuilder(root, initialType) {
       paint();
     });
 
-    builderArea.querySelectorAll('[data-line-qty]').forEach(inp => {
+        builderArea.querySelectorAll('[data-line-qty]').forEach(inp => {
       inp.addEventListener('change', () => {
         const idx = parseInt(inp.dataset.lineQty, 10);
         const v = parseInt(inp.value, 10) || 1;
         if (v < 1) { inp.value = lines[idx].qty; return; }
         lines[idx].qty = v;
-        paint();
+        // don't repaint on change — wait for Enter/Tab out to keep focus predictable
+      });
+      inp.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const idx = parseInt(inp.dataset.lineQty, 10);
+        const v = parseInt(inp.value, 10) || 1;
+        if (v >= 1) lines[idx].qty = v;
+        // find next qty input
+        const allQty = [...builderArea.querySelectorAll('[data-line-qty]')];
+        const currentPos = allQty.indexOf(inp);
+        const next = allQty[currentPos + 1];
+        if (next) {
+          next.focus();
+          next.select();
+        } else {
+          paint();
+        }
+      });
+      inp.addEventListener('blur', () => {
+        const idx = parseInt(inp.dataset.lineQty, 10);
+        const v = parseInt(inp.value, 10) || 1;
+        if (v >= 1 && v !== lines[idx].qty) {
+          lines[idx].qty = v;
+          paint();
+        }
       });
     });
     builderArea.querySelectorAll('[data-line-remove]').forEach(btn => {
