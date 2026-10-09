@@ -5,7 +5,7 @@ import { exportDeliveriesList, exportDeliveryDetail } from '../excel.js';
 let locationsCache = [];
 let productsCache = [];
 let stockCache = [];
-let listState = { month: '', expanded: false };
+let listState = { month: '', status: 'all', type: 'all', fromId: 'all', toId: 'all', search: '', expanded: false };
 
 export async function render(root) {
   root.innerHTML = '<div class="loading">Loading…</div>';
@@ -24,26 +24,102 @@ function totalQty(d) {
 function totalValue(d) {
   return d.delivery_items.reduce((s, i) => s + i.qty * (i.unit_price || 0), 0);
 }
+function stockAt(productId, locationId) {
+  return stockCache
+    .filter(r => r.product_id === productId && r.location_id === locationId)
+    .reduce((s, r) => s + r.qty, 0);
+}
 
 function renderList(root, deliveries) {
   let filtered = deliveries;
-  if (listState.month) {
-    filtered = deliveries.filter(d => (d.delivery_date || '').startsWith(listState.month));
+  if (listState.month) filtered = filtered.filter(d => (d.delivery_date || '').startsWith(listState.month));
+  if (listState.status !== 'all') filtered = filtered.filter(d => d.status === listState.status);
+  if (listState.type !== 'all') filtered = filtered.filter(d => d.type === listState.type);
+  if (listState.fromId !== 'all') filtered = filtered.filter(d => d.from_location_id === listState.fromId);
+  if (listState.toId !== 'all') filtered = filtered.filter(d => d.to_location_id === listState.toId);
+  if (listState.search.trim()) {
+    const q = listState.search.trim().toLowerCase();
+    filtered = filtered.filter(d =>
+      (d.ref || '').toLowerCase().includes(q) ||
+      (d.notes || '').toLowerCase().includes(q) ||
+      (d.from_location?.name || '').toLowerCase().includes(q) ||
+      (d.to_location?.name || '').toLowerCase().includes(q)
+    );
   }
+
   const total = filtered.length;
   const shown = listState.expanded ? filtered : filtered.slice(0, 5);
   const canExpand = filtered.length > 5;
+  const sumQty = filtered.reduce((s, d) => s + totalQty(d), 0);
+  const sumVal = filtered.reduce((s, d) => s + totalValue(d), 0);
 
   root.innerHTML = `
-    <div class="toolbar" style="align-items:flex-end;flex-wrap:wrap;gap:12px;">
+    <div class="toolbar">
       <button class="btn" id="newDeliveryBtn">+ New Delivery</button>
       <button class="btn secondary" id="newReturnBtn">+ New Return</button>
       <button class="btn secondary" id="exportListBtn">⬇️ Export to Excel</button>
-      <label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:4px;margin-left:auto;">
-        Month
-        <input type="month" id="listMonth" value="${listState.month || ''}">
-      </label>
     </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:12px 16px;">
+        <label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted);">
+          Status
+          <select id="fltStatus">
+            <option value="all" ${listState.status === 'all' ? 'selected' : ''}>All</option>
+            <option value="Draft" ${listState.status === 'Draft' ? 'selected' : ''}>Draft</option>
+            <option value="Approved" ${listState.status === 'Approved' ? 'selected' : ''}>Approved</option>
+            <option value="Sent" ${listState.status === 'Sent' ? 'selected' : ''}>Sent</option>
+            <option value="Void" ${listState.status === 'Void' ? 'selected' : ''}>Void</option>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted);">
+          Type
+          <select id="fltType">
+            <option value="all" ${listState.type === 'all' ? 'selected' : ''}>All</option>
+            <option value="Delivery" ${listState.type === 'Delivery' ? 'selected' : ''}>Delivery</option>
+            <option value="Return" ${listState.type === 'Return' ? 'selected' : ''}>Return</option>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted);">
+          From
+          <select id="fltFrom" style="min-width:130px;">
+            <option value="all">All</option>
+            ${locationsCache.map(l => `<option value="${l.id}" ${listState.fromId === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted);">
+          To
+          <select id="fltTo" style="min-width:130px;">
+            <option value="all">All</option>
+            ${locationsCache.map(l => `<option value="${l.id}" ${listState.toId === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted);">
+          Month
+          <input type="month" id="fltMonth" value="${listState.month || ''}">
+        </label>
+        <label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted);flex:1;min-width:180px;">
+          Search
+          <input type="text" id="fltSearch" value="${listState.search || ''}" placeholder="ref / notes / store">
+        </label>
+        <button class="btn secondary" id="fltClear" style="margin-bottom:1px;">Clear</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);">
+        <div style="padding:14px 16px;background:var(--panel);">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Deliveries Shown</div>
+          <div style="font-size:18px;font-weight:700;">${total}</div>
+        </div>
+        <div style="padding:14px 16px;background:var(--panel);">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Total Units</div>
+          <div style="font-size:18px;font-weight:700;">${sumQty}</div>
+        </div>
+        <div style="padding:14px 16px;background:var(--panel);">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Total Value</div>
+          <div style="font-size:18px;font-weight:700;">${fmtRp(sumVal)}</div>
+        </div>
+      </div>
+    </div>
+
     <div class="panel" style="overflow-x:auto;">
       <table>
         <thead><tr><th>Type</th><th>Ref</th><th>From</th><th>To</th><th>Date</th><th class="num">Items</th><th class="num">Value</th><th>Notes</th><th>Status</th></tr></thead>
@@ -59,7 +135,7 @@ function renderList(root, deliveries) {
               <td class="num">${fmtRp(totalValue(d))}</td>
               <td style="color:var(--muted);font-size:12px;">${d.notes ? (d.notes.length > 30 ? d.notes.slice(0, 30) + '…' : d.notes) : '—'}</td>
               <td><span class="badge ${(d.status || '').toLowerCase()}">${d.status}</span></td>
-            </tr>`).join('') || `<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:20px;">No deliveries${listState.month ? ' in ' + listState.month : ''}.</td></tr>`}
+            </tr>`).join('') || `<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:20px;">No deliveries match these filters.</td></tr>`}
         </tbody>
       </table>
       ${canExpand ? `
@@ -77,11 +153,24 @@ function renderList(root, deliveries) {
   root.querySelector('#newDeliveryBtn').addEventListener('click', () => renderBuilder(root, 'Delivery'));
   root.querySelector('#newReturnBtn').addEventListener('click', () => renderBuilder(root, 'Return'));
   root.querySelector('#exportListBtn').addEventListener('click', () => exportDeliveriesList(filtered));
-  root.querySelector('#listMonth').addEventListener('change', (e) => {
-    listState.month = e.target.value;
-    listState.expanded = false;
+
+  root.querySelector('#fltStatus').addEventListener('change', (e) => { listState.status = e.target.value; listState.expanded = false; renderList(root, deliveries); });
+  root.querySelector('#fltType').addEventListener('change', (e) => { listState.type = e.target.value; listState.expanded = false; renderList(root, deliveries); });
+  root.querySelector('#fltFrom').addEventListener('change', (e) => { listState.fromId = e.target.value; listState.expanded = false; renderList(root, deliveries); });
+  root.querySelector('#fltTo').addEventListener('change', (e) => { listState.toId = e.target.value; listState.expanded = false; renderList(root, deliveries); });
+  root.querySelector('#fltMonth').addEventListener('change', (e) => { listState.month = e.target.value; listState.expanded = false; renderList(root, deliveries); });
+
+  let searchTimer;
+  root.querySelector('#fltSearch').addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { listState.search = e.target.value; listState.expanded = false; renderList(root, deliveries); }, 400);
+  });
+
+  root.querySelector('#fltClear').addEventListener('click', () => {
+    listState = { month: '', status: 'all', type: 'all', fromId: 'all', toId: 'all', search: '', expanded: false };
     renderList(root, deliveries);
   });
+
   const expandBtn = root.querySelector('#expandBtn');
   if (expandBtn) {
     expandBtn.addEventListener('click', () => {
@@ -183,7 +272,9 @@ function renderBuilder(root, initialType) {
               <input type="text" id="fPrice" readonly style="min-width:140px;background:#1c1c1c;color:var(--muted);">
             </label>
             <button class="btn" id="addLineBtn" style="margin-bottom:1px;">+ Add</button>
+            <button class="btn secondary" id="addAllBtn" style="margin-bottom:1px;">+ Add All Matching</button>
           </div>
+          <div id="stockHint" style="padding:8px 16px 0;font-size:12px;color:var(--muted);"></div>
         </div>
 
         <div class="builder-section">
@@ -221,7 +312,7 @@ function renderBuilder(root, initialType) {
       </div>
     `;
 
-    builderArea.querySelector('#fromSel').addEventListener('change', (e) => { fromId = e.target.value; });
+    builderArea.querySelector('#fromSel').addEventListener('change', (e) => { fromId = e.target.value; paint(); });
     builderArea.querySelector('#toSel').addEventListener('change', (e) => { toId = e.target.value; });
     builderArea.querySelector('#dateSel').addEventListener('change', (e) => { dateVal = e.target.value; });
     const notesEl = builderArea.querySelector('#notesInput');
@@ -233,27 +324,47 @@ function renderBuilder(root, initialType) {
     const prodEl = builderArea.querySelector('#fProduct');
     const qtyEl = builderArea.querySelector('#fQty');
     const priceEl = builderArea.querySelector('#fPrice');
+    const hintEl = builderArea.querySelector('#stockHint');
 
-    function refreshProductOptions() {
+    function getFilteredProducts() {
       const q = searchEl.value.trim().toLowerCase();
       const s = styleEl.value;
       const c = colorEl.value;
-      const filtered = productOptions.filter(p =>
+      return productOptions.filter(p =>
         (!q || p.search.includes(q)) &&
         (!s || p.style_name === s) &&
         (!c || p.color === c)
       );
+    }
+
+    function refreshProductOptions() {
+      const filtered = getFilteredProducts();
       prodEl.innerHTML = filtered.length
         ? filtered.map(p => `<option value="${p.id}" data-price="${p.price}">${p.label} (${p.sku})</option>`).join('')
         : '<option value="">No products match</option>';
       updatePrice();
+      updateHint();
     }
     function updatePrice() {
       const opt = prodEl.options[prodEl.selectedIndex];
       priceEl.value = opt && opt.dataset.price ? 'Rp ' + Number(opt.dataset.price).toLocaleString('en-US') : '—';
+      updateHint();
+    }
+    function updateHint() {
+      const opt = prodEl.options[prodEl.selectedIndex];
+      if (!opt || !opt.value) { hintEl.textContent = ''; return; }
+      const avail = stockAt(opt.value, fromId);
+      const fromName = locationsCache.find(l => l.id === fromId)?.name || '?';
+      const qty = parseInt(qtyEl.value, 10) || 0;
+      if (qty > avail) {
+        hintEl.innerHTML = `<span style="color:#e0603d;">⚠ ${fromName} has only <b>${avail}</b> in stock. You're sending <b>${qty}</b>.</span>`;
+      } else {
+        hintEl.innerHTML = `<span style="color:var(--muted);">${fromName} on hand: <b>${avail}</b></span>`;
+      }
     }
     [searchEl, styleEl, colorEl].forEach(el => el.addEventListener('input', refreshProductOptions));
     prodEl.addEventListener('change', updatePrice);
+    qtyEl.addEventListener('input', updateHint);
     refreshProductOptions();
 
     builderArea.querySelector('#cancelBuilder').addEventListener('click', () => { builderArea.innerHTML = ''; });
@@ -280,6 +391,29 @@ function renderBuilder(root, initialType) {
         qty,
         unit_price: Number(product.price) || 0,
       });
+      paint();
+    });
+
+    builderArea.querySelector('#addAllBtn').addEventListener('click', () => {
+      const matching = getFilteredProducts();
+      if (matching.length === 0) { alert('No products match the current filters.'); return; }
+      const existing = new Set(lines.map(l => l.product_id));
+      let added = 0;
+      matching.forEach(product => {
+        if (existing.has(product.id)) return;
+        lines.push({
+          product_id: product.id,
+          sku: product.sku,
+          label: product.label,
+          qty: 1,
+          unit_price: Number(product.price) || 0,
+        });
+        added++;
+      });
+      if (added === 0) {
+        alert('All matching products are already in the list.');
+        return;
+      }
       paint();
     });
 
