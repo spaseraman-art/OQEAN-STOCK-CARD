@@ -85,14 +85,14 @@ export async function getDeliveryWithItems(id) {
   return data;
 }
 
-export async function createDelivery({ type, from_location_id, to_location_id, scheduled_date, items }) {
+export async function createDelivery({ type, from_location_id, to_location_id, scheduled_date, notes, items }) {
   const counterKey = type === 'Return' ? 'return' : 'delivery';
   const n = await nextCounter(counterKey);
   const ref = type === 'Return' ? `WH/IN/${String(n).padStart(5, '0')}` : `WH/OUT/${String(n).padStart(5, '0')}`;
 
   const { data: delivery, error } = await supabase
     .from('deliveries')
-    .insert({ ref, type, from_location_id, to_location_id, delivery_date: scheduled_date, status: 'Draft' })
+    .insert({ ref, type, from_location_id, to_location_id, delivery_date: scheduled_date, notes: notes || null, status: 'Draft' })
     .select()
     .single();
   if (error) throw error;
@@ -138,11 +138,12 @@ export async function deleteDelivery(deliveryId) {
   if (error) throw error;
 }
 
-export async function updateDeliveryDetails(id, { to_location_id, from_location_id, scheduled_date }) {
+export async function updateDeliveryDetails(id, { to_location_id, from_location_id, scheduled_date, notes }) {
   const patch = {};
   if (scheduled_date) patch.delivery_date = scheduled_date;
   if (to_location_id) patch.to_location_id = to_location_id;
   if (from_location_id) patch.from_location_id = from_location_id;
+  if (notes !== undefined) patch.notes = notes || null;
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from('deliveries').update(patch).eq('id', id);
   if (error) throw error;
@@ -279,7 +280,6 @@ export async function createSale({ location_id, product_id, qty, unit_price, sal
     .single();
   if (error) throw error;
 
-  // Check if this sale is dated before the location's last opname.
   const { data: lastOpname, error: opErr } = await supabase
     .from('stock_opname')
     .select('opname_date')
@@ -342,7 +342,6 @@ export async function deleteSale(id) {
 
 /* ---------- Stock Opname ---------- */
 export async function createOpname({ location_id, count_date, counted_by, items }) {
-  // Guard: refuse to create a second opname on the same day for the same location
   const { data: existing, error: checkErr } = await supabase
     .from('stock_opname')
     .select('id')
