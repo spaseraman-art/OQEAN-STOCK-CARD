@@ -201,4 +201,310 @@ function renderBuilder(root, initialType) {
                       <td class="num"><input type="number" min="1" value="${l.qty}" data-line-qty="${i}" style="width:70px;text-align:right;"></td>
                       <td class="num">${fmtRp(l.unit_price)}</td>
                       <td class="num">${fmtRp(l.qty * l.unit_price)}</td>
-                      <td><button class="btn secondary" data-line-remove="${i}" style="padding:2px 8px
+                      <td><button class="btn secondary" data-line-remove="${i}" style="padding:2px 8px;font-size:11px;">✕</button></td>
+                    </tr>`).join('')}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2" style="text-align:right;font-weight:700;">Total</td>
+                  <td class="num" style="font-weight:700;">${tQty}</td>
+                  <td class="num"></td>
+                  <td class="num" style="font-weight:700;">${fmtRp(tVal)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <button class="btn" id="createBtn">Create ${type} (Draft)</button>
+      </div>
+    `;
+
+    builderArea.querySelector('#fromSel').addEventListener('change', (e) => { fromId = e.target.value; });
+    builderArea.querySelector('#toSel').addEventListener('change', (e) => { toId = e.target.value; });
+    builderArea.querySelector('#dateSel').addEventListener('change', (e) => { dateVal = e.target.value; });
+    const notesEl = builderArea.querySelector('#notesInput');
+    if (notesEl) notesEl.addEventListener('input', (e) => { notesVal = e.target.value; });
+
+    const searchEl = builderArea.querySelector('#fSearch');
+    const styleEl = builderArea.querySelector('#fStyle');
+    const colorEl = builderArea.querySelector('#fColor');
+    const prodEl = builderArea.querySelector('#fProduct');
+    const qtyEl = builderArea.querySelector('#fQty');
+    const priceEl = builderArea.querySelector('#fPrice');
+
+    function refreshProductOptions() {
+      const q = searchEl.value.trim().toLowerCase();
+      const s = styleEl.value;
+      const c = colorEl.value;
+      const filtered = productOptions.filter(p =>
+        (!q || p.search.includes(q)) &&
+        (!s || p.style_name === s) &&
+        (!c || p.color === c)
+      );
+      prodEl.innerHTML = filtered.length
+        ? filtered.map(p => `<option value="${p.id}" data-price="${p.price}">${p.label} (${p.sku})</option>`).join('')
+        : '<option value="">No products match</option>';
+      updatePrice();
+    }
+    function updatePrice() {
+      const opt = prodEl.options[prodEl.selectedIndex];
+      priceEl.value = opt && opt.dataset.price ? 'Rp ' + Number(opt.dataset.price).toLocaleString('en-US') : '—';
+    }
+    [searchEl, styleEl, colorEl].forEach(el => el.addEventListener('input', refreshProductOptions));
+    prodEl.addEventListener('change', updatePrice);
+    refreshProductOptions();
+
+    builderArea.querySelector('#cancelBuilder').addEventListener('click', () => { builderArea.innerHTML = ''; });
+
+    builderArea.querySelectorAll('[data-t]').forEach(btn => {
+      btn.addEventListener('click', () => { type = btn.dataset.t; paint(); });
+    });
+
+    builderArea.querySelector('#addLineBtn').addEventListener('click', () => {
+      const opt = prodEl.options[prodEl.selectedIndex];
+      if (!opt || !opt.value) { alert('No product selected.'); return; }
+      const product = productOptions.find(p => p.id === opt.value);
+      if (!product) return;
+      if (lines.some(l => l.product_id === product.id)) {
+        alert(`⚠ ${product.style_name} — ${product.color} ${product.size} is already in this ${type}.`);
+        return;
+      }
+      const qty = parseInt(qtyEl.value, 10) || 1;
+      if (qty < 1) { alert('Qty must be at least 1.'); return; }
+      lines.push({
+        product_id: product.id,
+        sku: product.sku,
+        label: product.label,
+        qty,
+        unit_price: Number(product.price) || 0,
+      });
+      paint();
+    });
+
+    builderArea.querySelectorAll('[data-line-qty]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const idx = parseInt(inp.dataset.lineQty, 10);
+        const v = parseInt(inp.value, 10) || 1;
+        if (v < 1) { inp.value = lines[idx].qty; return; }
+        lines[idx].qty = v;
+        paint();
+      });
+    });
+    builderArea.querySelectorAll('[data-line-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.lineRemove, 10);
+        lines.splice(idx, 1);
+        paint();
+      });
+    });
+
+    builderArea.querySelector('#createBtn').addEventListener('click', async () => {
+      if (lines.length === 0) { alert('Add at least one item.'); return; }
+      if (fromId === toId) { alert('From and To must be different locations.'); return; }
+      try {
+        const delivery = await createDelivery({
+          type,
+          from_location_id: fromId,
+          to_location_id: toId,
+          scheduled_date: dateVal,
+          notes: notesVal,
+          items: lines,
+        });
+        alert(`${delivery.ref} created as Draft.`);
+        await render(root);
+      } catch (err) {
+        alert('Failed to create: ' + err.message);
+      }
+    });
+  }
+  paint();
+}
+
+async function renderDetail(root, id) {
+  const viewArea = root.querySelector('#viewArea');
+  viewArea.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    const full = await getDeliveryWithItems(id);
+    const isDraft = full.status === 'Draft';
+    const isApproved = full.status === 'Approved';
+    const isVoid = full.status === 'Void';
+    const isSent = full.status === 'Sent';
+    const usedProductIds = new Set(full.delivery_items.map(i => i.product_id));
+    const availableProducts = productsCache.filter(p => !usedProductIds.has(p.id));
+
+    const totalQty = full.delivery_items.reduce((s, i) => s + i.qty, 0);
+    const totalValue = full.delivery_items.reduce((s, i) => s + i.qty * (i.unit_price || 0), 0);
+
+    viewArea.innerHTML = `
+      <div class="builder show" ${isVoid ? 'style="opacity:0.75;"' : ''}>
+        <div class="toolbar" style="justify-content:space-between;">
+          <div style="font-weight:700;">${full.ref} <span class="badge ${full.status.toLowerCase()}">${full.status}</span></div>
+          <button class="btn secondary" id="closeDetail">✕ Close</button>
+        </div>
+        ${isDraft ? '<div class="note">Draft — everything below is editable.</div>' : ''}
+        ${isApproved ? '<div class="note">Approved — locked. Void it to cancel, or advance to Sent.</div>' : ''}
+        ${isSent ? '<div class="note">Sent — stock has moved and store has accepted. Locked.</div>' : ''}
+        ${isVoid ? `<div class="note" style="color:#e0603d;">Voided${full.voided_at ? ' on ' + new Date(full.voided_at).toLocaleDateString() : ''}${full.void_reason ? ' — ' + full.void_reason : ''}</div>` : ''}
+        ${full.notes && !isDraft ? `<div class="note">📝 ${full.notes}</div>` : ''}
+
+        <div class="panel" style="padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+          <div><b style="color:var(--muted);font-size:11px;">From</b><div>${full.from_location?.name || '—'}</div></div>
+          <div><b style="color:var(--muted);font-size:11px;">To</b><div>${full.to_location?.name || '—'}</div></div>
+          <div><b style="color:var(--muted);font-size:11px;">Date</b><div>${
+            isDraft ? `<input type="date" id="editDate" value="${full.delivery_date || ''}">` : (full.delivery_date || '—')
+          }</div></div>
+          ${isDraft ? `<div style="grid-column:1/-1;"><b style="color:var(--muted);font-size:11px;">Notes</b><div><input type="text" id="editNotes" value="${full.notes || ''}" placeholder="Optional notes" style="width:100%;"></div></div>` : ''}
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead><tr><th>SKU</th><th>Product</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Subtotal</th>${isDraft ? '<th></th>' : ''}</tr></thead>
+            <tbody id="itemsBody">
+              ${full.delivery_items.map(i => `
+                <tr data-item-row="${i.id}">
+                  <td>${i.products.sku}</td>
+                  <td>${i.products.style_name} — ${i.products.color} ${i.products.size}</td>
+                  <td class="num">${isDraft ? `<input type="number" class="edit-qty" data-item-id="${i.id}" value="${i.qty}" min="1" style="width:70px;text-align:right;">` : i.qty}</td>
+                  <td class="num">${fmtRp(i.unit_price || 0)}</td>
+                  <td class="num">${fmtRp(i.qty * (i.unit_price || 0))}</td>
+                  ${isDraft ? `<td><button class="btn secondary danger remove-item-btn" data-item-id="${i.id}" style="padding:4px 10px;">✕</button></td>` : ''}
+                </tr>`).join('')}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2" style="text-align:right;font-weight:700;">Total</td>
+                <td class="num" style="font-weight:700;">${totalQty}</td>
+                <td class="num"></td>
+                <td class="num" style="font-weight:700;">${fmtRp(totalValue)}</td>
+                ${isDraft ? '<td></td>' : ''}
+              </tr>
+            </tfoot>
+          </table>
+          ${isDraft ? `
+            <div style="padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <select id="addProductSel" style="min-width:240px;">
+                ${availableProducts.length
+                  ? availableProducts.map(p => `<option value="${p.id}" data-price="${p.price}">${p.sku} — ${p.style_name} — ${p.color} ${p.size}</option>`).join('')
+                  : '<option value="">No more products to add</option>'}
+              </select>
+              <input type="number" id="addQtyInput" min="1" value="1" style="width:80px;" placeholder="Qty">
+              <button class="btn secondary" id="addItemBtn">+ Add Item</button>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="toolbar" style="flex-wrap:wrap;">
+          ${isDraft ? '<button class="btn secondary" id="saveChanges">💾 Save Changes</button>' : ''}
+          ${isDraft ? '<button class="btn" id="advanceBtn">Approve</button>' : ''}
+          ${isApproved ? '<button class="btn" id="advanceBtn">Mark as Sent</button>' : ''}
+          ${isApproved ? '<button class="btn secondary" id="voidBtn" style="color:#e0603d;">🚫 Void</button>' : ''}
+          ${isDraft ? '<button class="btn secondary" id="deleteBtn" style="color:#e0603d;">🗑️ Delete Draft</button>' : ''}
+          <button class="btn secondary" id="printBtn">🖨️ Print</button>
+          <button class="btn secondary" id="exportDetailBtn">⬇️ Export to Excel</button>
+        </div>
+      </div>
+    `;
+    viewArea.querySelector('#closeDetail').addEventListener('click', () => { viewArea.innerHTML = ''; });
+    viewArea.querySelector('#printBtn').addEventListener('click', () => printDelivery(full));
+    viewArea.querySelector('#exportDetailBtn').addEventListener('click', () => exportDeliveryDetail(full));
+
+    viewArea.querySelectorAll('.remove-item-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (full.delivery_items.length <= 1) { alert('A delivery needs at least one item — delete the whole draft instead.'); return; }
+        if (!confirm('Remove this item from the draft?')) return;
+        try {
+          await deleteDeliveryItem(btn.dataset.itemId);
+          renderDetail(root, id);
+        } catch (err) {
+          alert('Failed to remove item: ' + err.message);
+        }
+      });
+    });
+
+    const addBtn = viewArea.querySelector('#addItemBtn');
+    if (addBtn) {
+      addBtn.addEventListener('click', async () => {
+        const sel = viewArea.querySelector('#addProductSel');
+        if (!sel.value) { alert('No products left to add.'); return; }
+        const opt = sel.options[sel.selectedIndex];
+        const qty = parseInt(viewArea.querySelector('#addQtyInput').value, 10) || 1;
+        const price = Number(opt.dataset.price) || 0;
+        try {
+          await addDeliveryItem(full.id, sel.value, qty, price);
+          renderDetail(root, id);
+        } catch (err) {
+          alert('Failed to add item: ' + err.message);
+        }
+      });
+    }
+
+    const saveBtn = viewArea.querySelector('#saveChanges');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        try {
+          const editNotesEl = viewArea.querySelector('#editNotes');
+          await updateDeliveryDetails(full.id, {
+            scheduled_date: viewArea.querySelector('#editDate').value,
+            notes: editNotesEl ? editNotesEl.value : full.notes,
+          });
+          for (const input of viewArea.querySelectorAll('.edit-qty')) {
+            await updateDeliveryItemQty(input.dataset.itemId, parseInt(input.value, 10) || 1);
+          }
+          alert('Saved.');
+          renderDetail(root, id);
+        } catch (err) {
+          alert('Failed to save: ' + err.message);
+        }
+      });
+    }
+
+    const advanceBtn = viewArea.querySelector('#advanceBtn');
+    if (advanceBtn) {
+      advanceBtn.addEventListener('click', async () => {
+        const nextLabel = full.status === 'Draft' ? 'Approved' : 'Sent';
+        if (nextLabel === 'Sent') {
+          if (!confirm(`Mark ${full.ref} as Sent? Stock will move from ${full.from_location.name} to ${full.to_location.name}. This is final.`)) return;
+        }
+        try {
+          await advanceDeliveryStatus(full);
+          await render(root);
+        } catch (err) {
+          alert('Failed to update status: ' + err.message);
+        }
+      });
+    }
+
+    const voidBtn = viewArea.querySelector('#voidBtn');
+    if (voidBtn) {
+      voidBtn.addEventListener('click', async () => {
+        const reason = prompt(`Void ${full.ref}?\n\nThis cancels the delivery. No stock has moved yet (Approved state).\n\nOptional reason:`, '');
+        if (reason === null) return;
+        try {
+          await voidDelivery(full.id, reason || null);
+          viewArea.innerHTML = '';
+          await render(root);
+        } catch (err) {
+          alert('Failed to void: ' + err.message);
+        }
+      });
+    }
+
+    const deleteBtn = viewArea.querySelector('#deleteBtn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async () => {
+        if (!confirm(`Delete draft ${full.ref} permanently?`)) return;
+        try {
+          await deleteDelivery(full.id);
+          viewArea.innerHTML = '';
+          await render(root);
+        } catch (err) {
+          alert('Failed to delete: ' + err.message);
+        }
+      });
+    }
+  } catch (err) {
+    viewArea.innerHTML = `<div class="error-msg">Failed to load: ${err.message}</div>`;
+  }
+}
