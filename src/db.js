@@ -149,7 +149,6 @@ export async function updateDeliveryDetails(id, { to_location_id, from_location_
 }
 
 export async function advanceDeliveryStatus(delivery) {
-  // Re-fetch fresh status to avoid acting on stale data
   const { data: fresh, error: fetchErr } = await supabase
     .from('deliveries')
     .select('status')
@@ -166,7 +165,6 @@ export async function advanceDeliveryStatus(delivery) {
   if (error) throw error;
 
   if (nextStatus === 'Sent') {
-    // Safety: check no movements already exist for this delivery
     const { count, error: checkErr } = await supabase
       .from('stock_movements')
       .select('id', { count: 'exact', head: true })
@@ -281,10 +279,30 @@ export async function createSale({ location_id, product_id, qty, unit_price, sal
     .single();
   if (error) throw error;
 
-  await insertStockMovement({
-    product_id, location_id, qty_change: -qty,
-    movement_type: 'sale', reference_id: sale.id, note: 'Sale',
-  });
+  // Check if this sale is dated before the location's last opname.
+  const { data: lastOpname, error: opErr } = await supabase
+    .from('stock_opname')
+    .select('opname_date')
+    .eq('location_id', location_id)
+    .order('opname_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (opErr) throw opErr;
+
+  const isBackdated = lastOpname && sale_date < lastOpname.opname_date;
+
+  if (!isBackdated) {
+    await insertStockMovement({
+      product_id, location_id, qty_change: -qty,
+      movement_type: 'sale', reference_id: sale.id, note: 'Sale',
+    });
+  } else {
+    await insertStockMovement({
+      product_id, location_id, qty_change: 0,
+      movement_type: 'sale', reference_id: sale.id,
+      note: `Sale (backdated before opname on ${lastOpname.opname_date} — no stock impact)`,
+    });
+  }
   return sale;
 }
 
@@ -324,9 +342,19 @@ export async function deleteSale(id) {
 
 /* ---------- Stock Opname ---------- */
 export async function createOpname({ location_id, count_date, counted_by, items }) {
+  // Guard: refuse to create a second opname on the same day for the same location
+  const { data: existing, error: checkErr } = await supabase
+    .from('stock_opname')
+    .select('id')
+    .eq('location_id', location_id)
+    .eq('opname_date', count_date)
+    .maybeSingle();
+  if (checkErr) throw checkErr;
+  if (existing) throw new Error(`An opname already exists for this location on ${count_date}.`);
+
   const { data: opname, error } = await supabase
     .from('stock_opname')
-    .insert({ location_id, count_date, counted_by })
+    .insert({ location_id, opname_date: count_date, counter_name: counted_by })
     .select()
     .single();
   if (error) throw error;
