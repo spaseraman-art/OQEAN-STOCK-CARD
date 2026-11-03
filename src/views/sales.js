@@ -18,15 +18,35 @@ export async function render(root) {
     root.innerHTML = `
       <div class="panel">
         <div class="panel-head"><h3>Log a Sale</h3></div>
-        <form class="entry-form">
+        <form class="entry-form" id="cartForm">
           <label>Location<select id="logLoc">${consignees.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select></label>
-          <label>Product<select id="logProd">${products.map(p => `<option value="${p.id}" data-price="${p.price}">${p.style_name} — ${p.color} ${p.size}</option>`).join('')}</select></label>
+          <label>Product<select id="logProd">${products.map(p => `<option value="${p.id}" data-price="${p.price}" data-name="${p.style_name} — ${p.color} ${p.size}">${p.style_name} — ${p.color} ${p.size}</option>`).join('')}</select></label>
           <label>Qty<input type="number" id="logQty" value="1" min="1"></label>
           <label>Unit Price<input type="text" id="logPrice" style="text-align:right;"></label>
           <label>Sale Date <span style="color:var(--accent);">(back-dated OK)</span><input type="date" id="logDate" value="${new Date().toISOString().slice(0,10)}"></label>
-          <label class="full">Notes<input type="text" id="logNote" placeholder="Optional"></label>
-          <div class="full"><button type="button" class="btn" id="logSave">Save Sale</button></div>
+          <label class="full">Notes<input type="text" id="logNote" placeholder="Optional (e.g., 'Weekend Promo')"></label>
+          <div class="full" style="display:flex;gap:10px;">
+            <button type="button" class="btn secondary" id="addBatchBtn">+ Add to Batch</button>
+          </div>
         </form>
+      </div>
+
+      <div class="panel" id="cartArea" style="display:none; margin-top:16px;">
+        <div class="panel-head"><h3>Batch Items</h3></div>
+        <table>
+          <thead><tr><th>Product</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Subtotal</th><th></th></tr></thead>
+          <tbody id="cartBody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" style="text-align:right;font-weight:700;">Total</td>
+              <td class="num" style="font-weight:700;" id="cartTotal">Rp 0</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div style="padding:16px;">
+          <button class="btn" id="saveBatchBtn">💾 Save Batch</button>
+        </div>
       </div>
 
       <div style="height:16px"></div>
@@ -91,18 +111,20 @@ export async function render(root) {
 
     const priceInput = root.querySelector('#logPrice');
     const prodSelect = root.querySelector('#logProd');
+    const qtyInput = root.querySelector('#logQty');
+    const noteInput = root.querySelector('#logNote');
+    
+    let cart = [];
 
     function updatePrice() {
       const opt = prodSelect.options[prodSelect.selectedIndex];
       const rawPrice = opt ? Number(opt.dataset.price) : 0;
-      // Format with commas for display
       priceInput.value = rawPrice.toLocaleString('en-US');
     }
     
     prodSelect.addEventListener('change', updatePrice);
     updatePrice();
 
-    // Let user type raw numbers, but format on blur
     priceInput.addEventListener('focus', () => {
       priceInput.value = priceInput.value.replace(/[^0-9]/g, '');
     });
@@ -111,22 +133,98 @@ export async function render(root) {
       priceInput.value = val.toLocaleString('en-US');
     });
 
-    root.querySelector('#logSave').addEventListener('click', async () => {
-      try {
-        // Read the raw price from the input
-        const rawPrice = parseFloat(priceInput.value.replace(/[^0-9]/g, '')) || 0;
-        
-        await createSale({
-          location_id: root.querySelector('#logLoc').value,
-          product_id: prodSelect.value,
-          qty: parseInt(root.querySelector('#logQty').value, 10) || 1,
-          unit_price: rawPrice,
-          sale_date: root.querySelector('#logDate').value,
-          note: root.querySelector('#logNote').value || null,
+    function renderCart() {
+      const cartArea = root.querySelector('#cartArea');
+      const cartBody = root.querySelector('#cartBody');
+      const cartTotal = root.querySelector('#cartTotal');
+
+      if (cart.length === 0) {
+        cartArea.style.display = 'none';
+        return;
+      }
+
+      cartArea.style.display = 'block';
+      let total = 0;
+
+      cartBody.innerHTML = cart.map((item, index) => {
+        const sub = item.qty * item.unit_price;
+        total += sub;
+        return `<tr>
+          <td>${item.name}</td>
+          <td class="num">${item.qty}</td>
+          <td class="num">${item.unit_price.toLocaleString('en-US')}</td>
+          <td class="num">${sub.toLocaleString('en-US')}</td>
+          <td><button type="button" class="btn secondary" data-remove="${index}" style="padding:2px 8px;font-size:11px;">✕</button></td>
+        </tr>`;
+      }).join('');
+
+      cartTotal.textContent = 'Rp ' + total.toLocaleString('en-US');
+
+      // Remove buttons
+      cartBody.querySelectorAll('[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.remove, 10);
+          cart.splice(idx, 1);
+          renderCart();
         });
+      });
+    }
+
+    root.querySelector('#addBatchBtn').addEventListener('click', () => {
+      const opt = prodSelect.options[prodSelect.selectedIndex];
+      if (!opt) return;
+      
+      const qty = parseInt(qtyInput.value, 10) || 1;
+      const rawPrice = parseFloat(priceInput.value.replace(/[^0-9]/g, '')) || 0;
+
+      if (qty < 1) { alert('Qty must be at least 1'); return; }
+      if (rawPrice <= 0) { alert('Enter a valid price'); return; }
+
+      cart.push({
+        product_id: opt.value,
+        name: opt.dataset.name,
+        qty: qty,
+        unit_price: rawPrice,
+      });
+
+      // Reset form for next entry
+      qtyInput.value = 1;
+      updatePrice();
+      renderCart();
+    });
+
+    root.querySelector('#saveBatchBtn').addEventListener('click', async () => {
+      if (cart.length === 0) return;
+      
+      const location_id = root.querySelector('#logLoc').value;
+      const sale_date = root.querySelector('#logDate').value;
+      const baseNote = noteInput.value.trim();
+      
+      // Generate a unique batch tag
+      const batchTag = 'BATCH-' + Math.floor(1000 + Math.random() * 9000);
+      const finalNote = baseNote ? `[${batchTag}] ${baseNote}` : `[${batchTag}]`;
+
+      const btn = root.querySelector('#saveBatchBtn');
+      btn.textContent = 'Saving...';
+      btn.disabled = true;
+
+      try {
+        for (const item of cart) {
+          await createSale({
+            location_id,
+            product_id: item.product_id,
+            qty: item.qty,
+            unit_price: item.unit_price,
+            sale_date,
+            note: finalNote,
+          });
+        }
+        alert(`Batch ${batchTag} saved successfully!`);
         await render(root);
       } catch (err) {
-        alert('Failed to log sale: ' + err.message);
+        alert('Failed to save batch: ' + err.message);
+        btn.textContent = '💾 Save Batch';
+        btn.disabled = false;
       }
     });
 
