@@ -22,7 +22,7 @@ export async function render(root) {
           <label>Location<select id="logLoc">${consignees.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select></label>
           <label>Product<select id="logProd">${products.map(p => `<option value="${p.id}" data-price="${p.price}">${p.style_name} — ${p.color} ${p.size}</option>`).join('')}</select></label>
           <label>Qty<input type="number" id="logQty" value="1" min="1"></label>
-          <label>Unit Price<input type="text" id="logPrice" readonly></label>
+          <label>Unit Price<input type="text" id="logPrice" style="text-align:right;"></label>
           <label>Sale Date <span style="color:var(--accent);">(back-dated OK)</span><input type="date" id="logDate" value="${new Date().toISOString().slice(0,10)}"></label>
           <label class="full">Notes<input type="text" id="logNote" placeholder="Optional"></label>
           <div class="full"><button type="button" class="btn" id="logSave">Save Sale</button></div>
@@ -91,20 +91,36 @@ export async function render(root) {
 
     const priceInput = root.querySelector('#logPrice');
     const prodSelect = root.querySelector('#logProd');
+
     function updatePrice() {
       const opt = prodSelect.options[prodSelect.selectedIndex];
-      priceInput.value = opt ? 'Rp ' + Number(opt.dataset.price).toLocaleString('en-US') : '';
+      const rawPrice = opt ? Number(opt.dataset.price) : 0;
+      // Format with commas for display
+      priceInput.value = rawPrice.toLocaleString('en-US');
     }
+    
     prodSelect.addEventListener('change', updatePrice);
     updatePrice();
 
+    // Let user type raw numbers, but format on blur
+    priceInput.addEventListener('focus', () => {
+      priceInput.value = priceInput.value.replace(/[^0-9]/g, '');
+    });
+    priceInput.addEventListener('blur', () => {
+      const val = parseFloat(priceInput.value.replace(/[^0-9]/g, '')) || 0;
+      priceInput.value = val.toLocaleString('en-US');
+    });
+
     root.querySelector('#logSave').addEventListener('click', async () => {
       try {
+        // Read the raw price from the input
+        const rawPrice = parseFloat(priceInput.value.replace(/[^0-9]/g, '')) || 0;
+        
         await createSale({
           location_id: root.querySelector('#logLoc').value,
           product_id: prodSelect.value,
           qty: parseInt(root.querySelector('#logQty').value, 10) || 1,
-          unit_price: parseFloat(prodSelect.options[prodSelect.selectedIndex].dataset.price),
+          unit_price: rawPrice,
           sale_date: root.querySelector('#logDate').value,
           note: root.querySelector('#logNote').value || null,
         });
