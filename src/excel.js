@@ -166,4 +166,23 @@ export function exportOfficialInvoiceExcel(full) {
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, ws, 'INV');
   XLSX.writeFile(book, `Official-Invoice-${invNo}.xlsx`);
+}export function exportSalesList(sales) {
+  const rows = sales.map(s => ({
+    Ref: s.ref || '',
+    Date: s.sale_date,
+    Location: s.locations?.name || '',
+    SKU: s.products?.sku || '',
+    Product: s.products?.style_name || '',
+    Color: s.products?.color || '',
+    Size: s.products?.size || '',
+    Qty: s.qty,
+    'Unit Price': s.unit_price,
+    'Total Value': s.qty * s.unit_price,
+    Invoiced: s.invoiced ? 'Yes' : 'No',
+    Notes: s.note || ''
+  }));
+  const sheet = XLSX.utils.json_to_sheet(rows);
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, 'Sales Log');
+  XLSX.writeFile(book, `sales-log-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
