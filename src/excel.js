@@ -1,7 +1,5 @@
 import * as XLSX from 'xlsx';
 
-/* ---------- Deliveries & Returns ---------- */
-
 export function exportDeliveriesList(deliveries) {
   const rows = deliveries.map(d => ({
     Type: d.type,
@@ -40,8 +38,6 @@ export function exportDeliveryDetail(full) {
   XLSX.utils.book_append_sheet(book, sheet, full.ref.replace(/\//g, '-'));
   XLSX.writeFile(book, `${full.ref.replace(/\//g, '-')}.xlsx`);
 }
-
-/* ---------- Stock Matrix (all locations) ---------- */
 
 export function exportStockMatrix(products, stock, locations) {
   const stockByProductLoc = {};
@@ -90,31 +86,93 @@ export function exportStockMatrix(products, stock, locations) {
   XLSX.writeFile(book, `stock-matrix-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
-/* ---------- Import parser (Deliveries) ---------- */
+export function exportOfficialInvoiceExcel(full) {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const invNo = `${yy}${mm}${dd}OM`;
+  
+  const displayDate = now.toISOString().slice(0, 10);
 
-// Expects a file with columns "SKU" and "Qty" (case-insensitive, extra columns ignored).
-export function parseDeliveryImportFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Could not read the file.'));
-    reader.onload = (e) => {
-      try {
-        const book = XLSX.read(e.target.result, { type: 'array' });
-        const sheet = book.Sheets[book.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-        if (rows.length === 0) throw new Error('No rows found in the file.');
-        const parsed = rows.map(r => {
-          const keys = Object.keys(r);
-          const skuKey = keys.find(k => k.toLowerCase().trim() === 'sku');
-          const qtyKey = keys.find(k => k.toLowerCase().trim() === 'qty' || k.toLowerCase().trim() === 'quantity');
-          if (!skuKey || !qtyKey) throw new Error('File must have "SKU" and "Qty" columns.');
-          return { sku: String(r[skuKey]).trim(), qty: parseInt(r[qtyKey], 10) || 0 };
-        }).filter(r => r.sku && r.qty > 0);
-        resolve(parsed);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.readAsArrayBuffer(file);
+  const ws = XLSX.utils.aoa_to_sheet([]);
+
+  const headerData = [
+    [], [], [], [], [], [], [],
+    [], ['', '', '', '', '', '', '', 'I N V O I C E'],
+    [], [],
+    ['', 'Company:', 'CV.NICONICO', full.locations?.name || '', '', 'Original', '', 'Customer'],
+    ['', 'Dept. / Attn.:', 'Mrs. Septi', full.locations?.attn || '', '', 'Copy 1', 'x', 'Accounting'],
+    ['', 'Address:', 'JL Gunung Salak Gg.Shangrila No.1B', full.locations?.address || '', '', 'Copy 2', '', 'Shipping'],
+    ['', '', 'Bali', '', '', 'Copy 3', '', 'File'],
+    ['', '', '80361', '', '', '', '', ''],
+    ['', '', '', '', 'INV No.:', invNo, '', ''],
+    ['', '', '', '', 'Date:', displayDate, '', ''],
+    ['', '', '', '', 'P.O. No.', '', '', ''],
+    ['', '', '', '', 'Delivery Date:', '', '', ''],
+    [],
+  ];
+
+  const itemRows = [
+    ['No.', 'Code', 'Unit Volume', 'Description', 'Unit Price', 'Quantity', '', 'Amount']
+  ];
+
+  full.invoice_items.forEach((item, index) => {
+    const rowNum = 21 + index;
+    itemRows.push([
+      index + 1,
+      '',
+      item.products?.size || '',
+      `Edited Oqean - ${item.products?.style_name} / ${item.products?.color} / ${item.products?.size}`,
+      item.unit_price,
+      item.qty,
+      'PCS',
+      { t: 'n', f: `E${rowNum}*F${rowNum}` }
+    ]);
   });
+
+  while (itemRows.length < 19) {
+    itemRows.push(['', '', '', '', '', '', '', '']);
+  }
+
+  const startRow = 21;
+  const endRow = startRow + itemRows.length - 2; 
+  const subtotalRow = endRow + 3;
+
+  const footerData = [
+    [], [], [], [], [], [], [],
+    ['', '', '', '', '', '', '', 'Sub Total', { t: 'n', f: `SUM(H${startRow}:H${endRow})` }],
+    ['', '', '', '', '', '', '', 'Discount', ''],
+    ['Payment Details', '', '', 'BANK PERMATA BANK', '', '', '', 'Deposit', ''],
+    ['', 'Cash', '', 'PT. OCC BALI CURATED', '', '', '', 'Shipping Fee', ''],
+    ['', 'Check', '', '1237860256', '', '', '', '', ''],
+    ['X', 'Transfer', '', 'SWIFT CODE : BBBAIDJA', '', '', '', '', { t: 'n', f: `SUM(H${subtotalRow}:H${subtotalRow + 3})` }],
+    ['', '', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', '', ''],
+    ['Payment Terms :', '', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', '', ''],
+    ['', 'Goods Received', '', '', '', '', '', 'Prepared By :', ''],
+    ['', '', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', '', ''],
+    ['', '', '', '', '', '', '', '', 'Yosie'],
+    ['', '', '', '', '', '', '', '', ''],
+    ['TERMS & CONDITIONS', '', '', '', '', '', '', '', ''],
+    ['1.', '', '', '', '', '', '', '', ''],
+    ['2.', '', '', '', '', '', '', '', ''],
+    ['3.', '', '', '', '', '', '', '', ''],
+    ['4.', '', '', '', '', '', '', '', ''],
+    ['5.', '', '', '', '', '', '', '', '']
+  ];
+
+  const allData = headerData.concat(itemRows).concat(footerData);
+
+  XLSX.utils.sheet_add_aoa(ws, allData, { origin: 'A1' });
+  ws['!cols'] = [
+    { wch: 5 }, { wch: 15 }, { wch: 15 }, { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 5 }, { wch: 15 }
+  ];
+
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, ws, 'INV');
+  XLSX.writeFile(book, `Invoice-${invNo}.xlsx`);
 }
