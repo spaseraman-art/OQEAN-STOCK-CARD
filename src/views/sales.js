@@ -1,4 +1,6 @@
 import { getLocations, getProducts, getSalesFiltered, createSale, updateSale, deleteSale } from '../db.js';
+import { fmtRp } from '../print.js';
+import { exportSalesList } from '../excel.js';
 
 let filters = { locationId: 'all', month: '', invoiced: 'all', search: '' };
 let loadedRows = [];
@@ -12,8 +14,36 @@ export async function render(root) {
     const consignees = locations.filter(l => l.type === 'Consignment Store');
 
     currentOffset = 0;
-    const { rows, total } = await getSalesFiltered({ ...filters, limit: PAGE_SIZE, offset: 0 });
+    const { rows, total } = await getSalesFiltered({ ...filters, limit: 10000, offset: 0 });
     loadedRows = rows;
+
+    let totalUnits = 0;
+    let totalValue = 0;
+    let invoicedValue = 0;
+    let uninvoicedValue = 0;
+    const skuMap = {};
+
+    rows.forEach(s => {
+      const val = s.qty * s.unit_price;
+      totalUnits += s.qty;
+      totalValue += val;
+      if (s.invoiced) invoicedValue += val;
+      else uninvoicedValue += val;
+
+      const skuKey = s.products?.sku || 'UNKNOWN';
+      if (!skuMap[skuKey]) {
+        skuMap[skuKey] = {
+          sku: skuKey,
+          name: `${s.products?.style_name} — ${s.products?.color} ${s.products?.size}`,
+          qty: 0,
+          value: 0
+        };
+      }
+      skuMap[skuKey].qty += s.qty;
+      skuMap[skuKey].value += val;
+    });
+
+    const skuBreakdown = Object.values(skuMap).sort((a, b) => b.qty - a.qty);
 
     root.innerHTML = `
       <div class="panel">
@@ -52,7 +82,11 @@ export async function render(root) {
       <div style="height:16px"></div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Sales</h3></div>
+        <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center;">
+          <h3>Sales Log & SKU Breakdown</h3>
+          <button class="btn secondary" id="exportSalesBtn" style="margin-right:16px;">⬇️ Export to Excel</button>
+        </div>
+        
         <div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--border);">
           <label style="display:flex;flex-direction:column;font-size:11px;color:var(--muted);">
             Partner
@@ -81,29 +115,79 @@ export async function render(root) {
             <button type="button" class="btn secondary" id="fltClear">Clear</button>
           </label>
         </div>
+
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);">
+          <div style="padding:14px 16px;background:var(--panel);">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Sales Logged</div>
+            <div style="font-size:18px;font-weight:700;">${rows.length}</div>
+          </div>
+          <div style="padding:14px 16px;background:var(--panel);">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Total Units</div>
+            <div style="font-size:18px;font-weight:700;">${totalUnits}</div>
+          </div>
+          <div style="padding:14px 16px;background:var(--panel);">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Total Value</div>
+            <div style="font-size:18px;font-weight:700;">${fmtRp(totalValue)}</div>
+          </div>
+          <div style="padding:14px 16px;background:var(--panel);">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Invoiced</div>
+            <div style="font-size:18px;font-weight:700;color:var(--good);">${fmtRp(invoicedValue)}</div>
+          </div>
+          <div style="padding:14px 16px;background:var(--panel);">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Uninvoiced</div>
+            <div style="font-size:18px;font-weight:700;color:#e0603d;">${fmtRp(uninvoicedValue)}</div>
+          </div>
+        </div>
+
+        ${skuBreakdown.length > 0 ? `
+          <div style="padding:16px; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border);">
+            <h4 style="margin:0 0 12px 0; font-size:13px; text-transform:uppercase; color:var(--muted);">SKU Breakdown (Filtered)</h4>
+            <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px;">
+              <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead style="position:sticky; top:0; background:#1e1e1e; z-index:1;">
+                  <tr>
+                    <th style="padding:8px; text-align:left;">SKU</th>
+                    <th style="padding:8px; text-align:left;">Product</th>
+                    <th style="padding:8px; text-align:right;">Qty Sold</th>
+                    <th style="padding:8px; text-align:right;">Total Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${skuBreakdown.map(s => `
+                    <tr>
+                      <td style="padding:8px; border-bottom:1px solid var(--border);">${s.sku}</td>
+                      <td style="padding:8px; border-bottom:1px solid var(--border);">${s.name}</td>
+                      <td style="padding:8px; text-align:right; border-bottom:1px solid var(--border); font-weight:700;">${s.qty}</td>
+                      <td style="padding:8px; text-align:right; border-bottom:1px solid var(--border);">${fmtRp(s.value)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : ''}
+
         <table>
           <thead><tr>
-            <th>Ref</th><th>Date</th><th>Location</th><th>Product</th><th class="num">Qty</th><th>Invoiced</th>
+            <th>Ref</th><th>Date</th><th>Location</th><th>Product</th><th class="num">Qty</th><th class="num">Value</th><th>Invoiced</th>
           </tr></thead>
           <tbody id="salesBody">
             ${rows.length === 0
-              ? '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px;">No sales match these filters.</td></tr>'
-              : rows.map(s => `
+              ? '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px;">No sales match these filters.</td></tr>'
+              : rows.slice(0, 50).map(s => `
                 <tr class="hoverable" data-id="${s.id}">
                   <td>${s.ref || '—'}</td>
                   <td>${s.sale_date}</td>
                   <td>${s.locations.name}</td>
                   <td>${s.products.style_name} — ${s.products.color} ${s.products.size}</td>
                   <td class="num">${s.qty}</td>
+                  <td class="num">${fmtRp(s.qty * s.unit_price)}</td>
                   <td>${s.invoiced ? '<span class="badge sent">✔</span>' : '<span class="badge draft">—</span>'}</td>
                 </tr>`).join('')}
           </tbody>
         </table>
         <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="color:var(--muted);font-size:12px;">Showing ${loadedRows.length}${total ? ' of ' + total : ''}</span>
-          ${rows.length === PAGE_SIZE
-            ? `<button class="btn secondary" id="loadMore">Load 50 more</button>`
-            : ''}
+          <span style="color:var(--muted);font-size:12px;">Showing first 50 of ${rows.length} filtered sales.</span>
         </div>
       </div>
       <div id="editArea"></div>
@@ -160,7 +244,6 @@ export async function render(root) {
 
       cartTotal.textContent = 'Rp ' + total.toLocaleString('en-US');
 
-      // Remove buttons
       cartBody.querySelectorAll('[data-remove]').forEach(btn => {
         btn.addEventListener('click', () => {
           const idx = parseInt(btn.dataset.remove, 10);
@@ -187,7 +270,6 @@ export async function render(root) {
         unit_price: rawPrice,
       });
 
-      // Reset form for next entry
       qtyInput.value = 1;
       updatePrice();
       renderCart();
@@ -200,7 +282,6 @@ export async function render(root) {
       const sale_date = root.querySelector('#logDate').value;
       const baseNote = noteInput.value.trim();
       
-      // Generate a unique batch tag
       const batchTag = 'BATCH-' + Math.floor(1000 + Math.random() * 9000);
       const finalNote = baseNote ? `[${batchTag}] ${baseNote}` : `[${batchTag}]`;
 
@@ -228,6 +309,10 @@ export async function render(root) {
       }
     });
 
+    root.querySelector('#exportSalesBtn').addEventListener('click', () => {
+      exportSalesList(rows);
+    });
+
     root.querySelector('#fltLoc').addEventListener('change', e => { filters.locationId = e.target.value; render(root); });
     root.querySelector('#fltMonth').addEventListener('change', e => { filters.month = e.target.value; render(root); });
     root.querySelector('#fltInv').addEventListener('change', e => { filters.invoiced = e.target.value; render(root); });
@@ -242,33 +327,6 @@ export async function render(root) {
       filters = { locationId: 'all', month: '', invoiced: 'all', search: '' };
       render(root);
     });
-
-    const loadMoreBtn = root.querySelector('#loadMore');
-    if (loadMoreBtn) {
-      loadMoreBtn.addEventListener('click', async () => {
-        loadMoreBtn.textContent = 'Loading…';
-        loadMoreBtn.disabled = true;
-        currentOffset += PAGE_SIZE;
-        const { rows: more } = await getSalesFiltered({ ...filters, limit: PAGE_SIZE, offset: currentOffset });
-        const body = root.querySelector('#salesBody');
-        more.forEach(s => {
-          const tr = document.createElement('tr');
-          tr.className = 'hoverable';
-          tr.dataset.id = s.id;
-          tr.innerHTML = `<td>${s.ref || '—'}</td><td>${s.sale_date}</td><td>${s.locations.name}</td><td>${s.products.style_name} — ${s.products.color} ${s.products.size}</td><td class="num">${s.qty}</td><td>${s.invoiced ? '<span class="badge sent">✔</span>' : '<span class="badge draft">—</span>'}</td>`;
-          tr.addEventListener('click', () => {
-            const sale = [...loadedRows, ...more].find(x => x.id === s.id);
-            renderEdit(root, sale, locations);
-          });
-          body.appendChild(tr);
-        });
-        loadedRows = [...loadedRows, ...more];
-        loadMoreBtn.disabled = false;
-        if (more.length < PAGE_SIZE) loadMoreBtn.style.display = 'none';
-        else loadMoreBtn.textContent = 'Load 50 more';
-        root.querySelector('span[style*="Showing"]').textContent = `Showing ${loadedRows.length}`;
-      });
-    }
 
     root.querySelectorAll('#salesBody tr[data-id]').forEach(row => {
       row.addEventListener('click', () => {
