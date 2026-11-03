@@ -92,119 +92,28 @@ export function exportOfficialInvoiceExcel(full) {
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
   const invNo = `${yy}${mm}${dd}OM`;
-  
-  const displayDate = now.toISOString().slice(0, 10);
-
-  const ws = XLSX.utils.aoa_to_sheet([]);
-
-  const headerData = [
-    [], [], [], [], [], [], [],
-    [], ['', '', '', '', '', '', '', 'I N V O I C E'],
-    [], [],
-    ['', 'Company:', 'CV.NICONICO', full.locations?.name || '', '', 'Original', '', 'Customer'],
-    ['', 'Dept. / Attn.:', 'Mrs. Septi', full.locations?.attn || '', '', 'Copy 1', 'x', 'Accounting'],
-    ['', 'Address:', 'JL Gunung Salak Gg.Shangrila No.1B', full.locations?.address || '', '', 'Copy 2', '', 'Shipping'],
-    ['', '', 'Bali', '', '', 'Copy 3', '', 'File'],
-    ['', '', '80361', '', '', '', '', ''],
-    ['', '', '', '', 'INV No.:', invNo, '', ''],
-    ['', '', '', '', 'Date:', displayDate, '', ''],
-    ['', '', '', '', 'P.O. No.', '', '', ''],
-    ['', '', '', '', 'Delivery Date:', '', '', ''],
-    [],
-  ];
-
-  const itemRows = [
-    ['No.', 'Code', 'Unit Volume', 'Description', 'Unit Price', 'Quantity', '', 'Amount']
-  ];
-
-  full.invoice_items.forEach((item, index) => {
-    const rowNum = 21 + index;
-    itemRows.push([
-      index + 1,
-      '',
-      item.products?.size || '',
-      `Edited Oqean - ${item.products?.style_name} / ${item.products?.color} / ${item.products?.size}`,
-      item.unit_price,
-      item.qty,
-      'PCS',
-      { t: 'n', f: `E${rowNum}*F${rowNum}` }
-    ]);
-  });
-
-  while (itemRows.length < 19) {
-    itemRows.push(['', '', '', '', '', '', '', '']);
-  }
-
-  const startRow = 21;
-  const endRow = startRow + itemRows.length - 2; 
-  const subtotalRow = endRow + 3;
-
-  const footerData = [
-    [], [], [], [], [], [], [],
-    ['', '', '', '', '', '', '', 'Sub Total', { t: 'n', f: `SUM(H${startRow}:H${endRow})` }],
-    ['', '', '', '', '', '', '', 'Discount', ''],
-    ['Payment Details', '', '', 'BANK PERMATA BANK', '', '', '', 'Deposit', ''],
-    ['', 'Cash', '', 'PT. OCC BALI CURATED', '', '', '', 'Shipping Fee', ''],
-    ['', 'Check', '', '1237860256', '', '', '', '', ''],
-    ['X', 'Transfer', '', 'SWIFT CODE : BBBAIDJA', '', '', '', '', { t: 'n', f: `SUM(H${subtotalRow}:H${subtotalRow + 3})` }],
-    ['', '', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', '', ''],
-    ['Payment Terms :', '', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', '', ''],
-    ['', 'Goods Received', '', '', '', '', '', 'Prepared By :', ''],
-    ['', '', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', '', '', 'Yosie'],
-    ['', '', '', '', '', '', '', '', ''],
-    ['TERMS & CONDITIONS', '', '', '', '', '', '', '', ''],
-    ['1.', '', '', '', '', '', '', '', ''],
-    ['2.', '', '', '', '', '', '', '', ''],
-    ['3.', '', '', '', '', '', '', '', ''],
-    ['4.', '', '', '', '', '', '', '', ''],
-    ['5.', '', '', '', '', '', '', '', '']
-  ];
-
-  const allData = headerData.concat(itemRows).concat(footerData);
-
-  XLSX.utils.sheet_add_aoa(ws, allData, { origin: 'A1' });
-  ws['!cols'] = [
-    { wch: 5 }, { wch: 15 }, { wch: 15 }, { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 5 }, { wch: 15 }
-  ];
-
-  const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, ws, 'INV');
-  XLSX.writeFile(book, `Invoice-${invNo}.xlsx`);
-}
-export function exportOfficialInvoiceExcel(full) {
-  const now = new Date();
-  const yy = String(now.getFullYear()).slice(-2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const invNo = `${yy}${mm}${dd}OM`; // Matches 260908OM
-  const displayDate = now.toLocaleDateString('en-US'); // Matches 9/10/2026
+  const displayDate = now.toLocaleDateString('en-US');
 
   const ws = {};
   const setCell = (cell, value, type = 's') => {
     ws[cell] = { v: value, t: type };
   };
 
-  // --- HEADER ---
   setCell('H8', 'I N V O I C E');
   
   setCell('B12', 'Company:');
-  setCell('C12', full.locations?.name || 'Raffles Bali'); // Fallback
+  setCell('C12', full.locations?.name || '');
   setCell('F12', 'Original'); setCell('H12', 'Customer');
   
   setCell('B13', 'Dept. / Attn.:');
-  setCell('C13', full.locations?.attn || 'RAFFLES Bali SPA');
+  setCell('C13', full.locations?.attn || '');
   setCell('F13', 'Copy 1'); setCell('G13', 'x'); setCell('H13', 'Accounting');
   
   setCell('B14', 'Address:');
-  setCell('C14', full.locations?.address || 'Jalan Karang Mas Sejahtera No. 1A');
+  setCell('C14', full.locations?.address || '');
   setCell('F14', 'Copy 2'); setCell('H14', 'Shipping');
   
-  setCell('C15', '80361, Jimbaran, Bali, Indonesia');
+  setCell('C15', '');
   setCell('F15', 'Copy 3'); setCell('H15', 'File');
 
   setCell('E18', 'INV No.:'); setCell('F18', invNo);
@@ -212,7 +121,6 @@ export function exportOfficialInvoiceExcel(full) {
   setCell('E20', 'P.O. No.');
   setCell('E21', 'Delivery Date:');
 
-  // --- ITEMS ---
   const headers = ['No.', 'Code', 'Description', 'Unit Price', 'Quantity', '', 'Amount'];
   headers.forEach((h, i) => {
     const col = String.fromCharCode(65 + i); 
@@ -223,23 +131,20 @@ export function exportOfficialInvoiceExcel(full) {
   full.invoice_items.forEach((item, index) => {
     const rowNum = startRow + index;
     setCell(`A${rowNum}`, index + 1, 'n');
-    // Description format: Edited - Oqean [Style] [Color] [Size]
     setCell(`C${rowNum}`, `Edited - Oqean ${item.products?.style_name || ''} ${item.products?.color || ''} ${item.products?.size || ''}`);
     setCell(`D${rowNum}`, item.unit_price, 'n');
     setCell(`E${rowNum}`, `${item.qty} PCS`);
-    ws[`G${rowNum}`] = { t: 'n', f: `D${rowNum}*E${rowNum}` }; // Subtotal formula
+    ws[`G${rowNum}`] = { t: 'n', f: `D${rowNum}*F${rowNum}` };
   });
 
-  // Pad rows
   let currentRow = startRow + full.invoice_items.length;
   while (currentRow <= 38) { currentRow++; }
 
-  // --- FOOTER ---
   setCell('F39', 'Sub Total'); ws['G39'] = { t: 'n', f: `SUM(G23:G38)` };
   setCell('F40', 'Discount');
   setCell('F41', 'Deposit');
   setCell('F42', 'Shipping Fee');
-  ws['G43'] = { t: 'n', f: `SUM(G39:G42)` }; // Grand Total
+  ws['G43'] = { t: 'n', f: `SUM(G39:G42)` };
 
   setCell('A44', 'Payment Details');
   setCell('C44', 'BANK PERMATA BANK');
