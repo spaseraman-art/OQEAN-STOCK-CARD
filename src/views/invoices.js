@@ -1,5 +1,6 @@
 import { getLocations, getInvoices, getInvoiceWithItems, getSalesForPeriod, createInvoice, updateInvoiceStatus, voidInvoice } from '../db.js';
 import { printInvoice, fmtRp } from '../print.js';
+import { exportOfficialInvoiceExcel } from '../excel.js';
 
 let invFilters = { status: 'all', consignee: 'all', period: '', search: '' };
 
@@ -259,14 +260,16 @@ async function renderDetail(root, id) {
             <button class="btn secondary" id="updateStatusBtn">Update Status</button>
           </div>
         ` : ''}
-        <div class="toolbar">
+        <div class="toolbar" style="flex-wrap:wrap;">
           <button class="btn secondary" id="printInvBtn">🖨️ Print</button>
+          <button class="btn secondary" id="exportInvExcelBtn">⬇️ Official Excel Invoice</button>
           ${!isVoid ? `<button class="btn secondary" id="voidInvBtn" style="color:#e0603d;">🚫 Void Invoice</button>` : ''}
         </div>
       </div>
     `;
     viewArea.querySelector('#closeInvDetail').addEventListener('click', () => { viewArea.innerHTML = ''; });
     viewArea.querySelector('#printInvBtn').addEventListener('click', () => printInvoice(full));
+    viewArea.querySelector('#exportInvExcelBtn').addEventListener('click', () => exportOfficialInvoiceExcel(full));
 
     const statusBtn = viewArea.querySelector('#updateStatusBtn');
     if (statusBtn) {
