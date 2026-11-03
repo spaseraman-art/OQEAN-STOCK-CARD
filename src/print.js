@@ -21,7 +21,6 @@ export function printDelivery(full) {
     ['Status', full.status],
   ]);
 
-  // Notes row — full-width, below meta grid, above items
   const metaBox = document.getElementById('p-meta');
   let notesRow = document.getElementById('p-notes-row');
   if (!notesRow) {
@@ -81,7 +80,6 @@ export function printOpname({ locationName, countDate, countedBy, items }) {
     ['Total System Qty', systemTotal],
   ]);
 
-  // Clear any leftover notes row from a previous print
   const staleNotes = document.getElementById('p-notes-row');
   if (staleNotes) staleNotes.style.display = 'none';
 
@@ -109,7 +107,6 @@ export function printInvoice(full) {
     ['Due Date', full.due_date],
   ]);
 
-  // Clear any leftover notes row from a previous print
   const staleNotes = document.getElementById('p-notes-row');
   if (staleNotes) staleNotes.style.display = 'none';
 
@@ -134,7 +131,6 @@ export function printInvoice(full) {
   window.print();
 }
 
-export { fmtRp };
 export function printOfficialInvoice(full) {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
@@ -255,3 +251,5 @@ export function printOfficialInvoice(full) {
     printWindow.close();
   }, 250);
 }
+
+export { fmtRp };
