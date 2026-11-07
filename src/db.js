@@ -63,11 +63,15 @@ export async function insertStockMovement({ product_id, location_id, qty_change,
 export async function getProductLedger(productId, locationId) {
   const { data, error } = await supabase
     .from('stock_movements')
-    .select('created_at, movement_type, qty_change, note')
+    .select('*') // Select everything to avoid column name errors
     .eq('product_id', productId)
     .eq('location_id', locationId)
     .order('created_at', { ascending: true });
-  if (error) throw error;
+
+  if (error) {
+    // Throw a readable error so the UI can display it
+    throw new Error(error.message + " (Code: " + error.code + ")");
+  }
   return data;
 }
 
