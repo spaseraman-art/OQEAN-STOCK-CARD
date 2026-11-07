@@ -103,6 +103,7 @@ async function renderProducts(container) {
       </div>
     `;
 
+    // --- SKU Auto-generation logic ---
     const nameEl = container.querySelector('#np-name');
     const matEl = container.querySelector('#np-material');
     const colEl = container.querySelector('#np-color');
@@ -115,11 +116,8 @@ async function renderProducts(container) {
       const sku = makeSku(nameEl.value, matEl.value, colEl.value, sizeEl.value);
       skuEl.value = sku;
       if (!sku) { warnEl.textContent = ''; return; }
-      if (existingSkus.has(sku)) {
-        warnEl.textContent = '⚠ This SKU already exists.';
-      } else {
-        warnEl.textContent = '';
-      }
+      if (existingSkus.has(sku)) warnEl.textContent = '⚠ This SKU already exists.';
+      else warnEl.textContent = '';
     }
     [nameEl, matEl, colEl, sizeEl].forEach(el => el.addEventListener('input', refreshSku));
 
@@ -161,33 +159,44 @@ async function renderProducts(container) {
       });
     });
 
+    // --- Row Click Logic (Fixed) ---
     container.querySelectorAll('#prodBody tr[data-id]').forEach(row => {
       row.addEventListener('click', async () => {
         const product = products.find(p => p.id === row.dataset.id);
+        if (!product) return;
+
         const breakdown = await getProductBreakdown(product.id);
         container.querySelector('#bd-title').textContent = `${product.style_name} — ${product.color} ${product.size} (${product.sku})`;
         
-        container.querySelector('#bd-body').innerHTML = breakdown.map(b =>
-          `<tr>
-            <td><a href="#" class="ledger-link" data-loc-id="${b.locationId}" style="color:var(--accent); text-decoration:underline;">${b.location}</a></td>
-            <td>${b.qty}</td>
-          </tr>`
-        ).join('') || '<tr><td colspan="2" style="color:var(--muted);text-align:center;">No stock movements yet.</td></tr>';
+        // Build the breakdown table
+        container.querySelector('#bd-body').innerHTML = breakdown.map(b => `
+          <tr>
+            <td>
+              <button class="btn secondary view-ledger-btn" data-loc-id="${b.locationId}" style="padding: 4px 10px; font-size: 11px;">
+                📄 View Ledger
+              </button>
+              <span style="margin-left: 8px;">${b.location}</span>
+            </td>
+            <td class="num">${b.qty}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="2" style="color:var(--muted);text-align:center;">No stock movements yet.</td></tr>';
         
         container.querySelector('#breakdownPanel').classList.add('show');
 
-        // Bind click events to open the ledger
-        container.querySelectorAll('.ledger-link').forEach(link => {
-          link.addEventListener('click', async (e) => {
+        // Bind the new View Ledger buttons
+        container.querySelectorAll('.view-ledger-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
             e.preventDefault();
-            const locId = link.dataset.locId;
-            const locName = link.textContent;
+            const locId = btn.dataset.locId;
+            // Find the location name from the row text
+            const locName = btn.parentElement.querySelector('span').textContent;
             const ledger = await getProductLedger(product.id, locId);
             renderLedgerModal(product, locName, ledger);
           });
         });
       });
     });
+
     container.querySelector('#bd-close').addEventListener('click', () => {
       container.querySelector('#breakdownPanel').classList.remove('show');
     });
