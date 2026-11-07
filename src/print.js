@@ -73,7 +73,6 @@ export function printOpname({ locationName, countDate, countedBy, items }) {
   document.getElementById('p-ref').textContent = locationName;
   document.getElementById('p-status').textContent = 'Pending Count';
   
-  // Calculate actual quantities, not just row counts
   const totalSystemQty = items.reduce((s, i) => s + (Number(i.system_qty) || 0), 0);
   
   setMeta([
@@ -89,7 +88,10 @@ export function printOpname({ locationName, countDate, countedBy, items }) {
   document.getElementById('p-thead-row').innerHTML =
     '<th>Product / Variant</th><th class="num">System Qty</th><th class="num">Counted Qty</th><th>Notes</th>';
     
-  document.getElementById('p-items').innerHTML = items.map(i =>
+  // Sort alphabetically by Name
+  const sortedItems = [...items].sort((a, b) => a.name.localeCompare(b.name));
+
+  document.getElementById('p-items').innerHTML = sortedItems.map(i =>
     `<tr>
       <td>${i.name}</td>
       <td class="num">${i.system_qty}</td>
@@ -98,7 +100,6 @@ export function printOpname({ locationName, countDate, countedBy, items }) {
     </tr>`
   ).join('');
   
-  // Update the footer to show the total quantity, not the number of rows
   document.getElementById('p-tfoot').innerHTML =
     `<tr>
       <td style="font-weight:700;">Total Qty</td>
