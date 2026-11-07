@@ -1185,7 +1185,7 @@ Optional reason:`,"");if(x!==null)try{await hf(s.id,x||null),r.innerHTML="",awai
 
 Sales on this invoice will be released for re-invoicing.
 
-Optional reason:`,"");if(o!==null)try{await wf(n.id,o||null),r.innerHTML="",await Ji(t)}catch(l){alert("Failed to void: "+l.message)}})}catch(n){r.innerHTML=`<div class="error-msg">Failed to load invoice: ${n.message}</div>`}}const j_=Object.freeze(Object.defineProperty({__proto__:null,render:Ji},Symbol.toStringTag,{value:"Module"}));async function xu(t){t.innerHTML='<div class="loading">Loading…</div>';try{let l=function(u){o=s.filter(d=>d.location_id===u).map(d=>({product_id:d.product_id,product:a[d.product_id],system_qty:d.qty})).filter(d=>d.product);const h=t.querySelector("#opnBody");h.innerHTML=o.map((d,f)=>`
+Optional reason:`,"");if(o!==null)try{await wf(n.id,o||null),r.innerHTML="",await Ji(t)}catch(l){alert("Failed to void: "+l.message)}})}catch(n){r.innerHTML=`<div class="error-msg">Failed to load invoice: ${n.message}</div>`}}const j_=Object.freeze(Object.defineProperty({__proto__:null,render:Ji},Symbol.toStringTag,{value:"Module"}));async function xu(t){t.innerHTML='<div class="loading">Loading…</div>';try{let l=function(u){o=s.filter(d=>d.location_id===u).map(d=>({product_id:d.product_id,product:a[d.product_id],system_qty:d.qty})).filter(d=>d.product),o.sort((d,f)=>{const m=`${d.product.style_name} — ${d.product.color} ${d.product.size}`,p=`${f.product.style_name} — ${f.product.color} ${f.product.size}`;return m.localeCompare(p)});const h=t.querySelector("#opnBody");h.innerHTML=o.map((d,f)=>`
         <tr data-idx="${f}">
           <td>${d.product.style_name} — ${d.product.color} ${d.product.size}</td>
           <td>${d.system_qty}</td>
