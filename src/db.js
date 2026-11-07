@@ -44,12 +44,29 @@ export async function getCurrentStock() {
 
 // Updated to return locationId so the ledger can open
 export async function getProductBreakdown(productId) {
-  const { data, error } = await supabase
+  // 1. Get the current stock for this product (just IDs and quantities)
+  const { data: stock, error: stockErr } = await supabase
     .from('v_current_stock')
-    .select('location_id, qty, locations(name)')
+    .select('location_id, qty')
     .eq('product_id', productId);
-  if (error) throw error;
-  return data.map(r => ({ location: r.locations.name, locationId: r.location_id, qty: r.qty }));
+  if (stockErr) throw stockErr;
+
+  // 2. Get all locations (just IDs and names)
+  const { data: locations, error: locErr } = await supabase
+    .from('locations')
+    .select('id, name');
+  if (locErr) throw locErr;
+
+  // 3. Create a map of location names for quick lookup
+  const locMap = {};
+  locations.forEach(l => locMap[l.id] = l.name);
+
+  // 4. Merge them together
+  return stock.map(r => ({
+    location: locMap[r.location_id] || 'Unknown',
+    locationId: r.location_id,
+    qty: r.qty
+  }));
 }
 
 export async function insertStockMovement({ product_id, location_id, qty_change, movement_type, reference_id, note }) {
