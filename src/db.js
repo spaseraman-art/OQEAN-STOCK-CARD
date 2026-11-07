@@ -42,13 +42,14 @@ export async function getCurrentStock() {
   return data;
 }
 
+// Updated to return locationId so the ledger can open
 export async function getProductBreakdown(productId) {
   const { data, error } = await supabase
     .from('v_current_stock')
     .select('location_id, qty, locations(name)')
     .eq('product_id', productId);
   if (error) throw error;
-  return data.map(r => ({ location: r.locations.name, qty: r.qty }));
+  return data.map(r => ({ location: r.locations.name, locationId: r.location_id, qty: r.qty }));
 }
 
 export async function insertStockMovement({ product_id, location_id, qty_change, movement_type, reference_id, note }) {
@@ -56,6 +57,18 @@ export async function insertStockMovement({ product_id, location_id, qty_change,
     .from('stock_movements')
     .insert({ product_id, location_id, qty_change, movement_type, reference_id, note });
   if (error) throw error;
+}
+
+// New function for the Item Ledger
+export async function getProductLedger(productId, locationId) {
+  const { data, error } = await supabase
+    .from('stock_movements')
+    .select('created_at, movement_type, qty_change, note')
+    .eq('product_id', productId)
+    .eq('location_id', locationId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
 }
 
 /* ---------- Counters ---------- */
@@ -549,13 +562,4 @@ export async function markIncomingReceived(shipment) {
     });
   }
   return full;
-}export async function getProductLedger(productId, locationId) {
-  const { data, error } = await supabase
-    .from('stock_movements')
-    .select('created_at, movement_type, qty_change, note')
-    .eq('product_id', productId)
-    .eq('location_id', locationId)
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return data;
 }
