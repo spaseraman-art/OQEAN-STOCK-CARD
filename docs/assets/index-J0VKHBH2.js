@@ -41,9 +41,9 @@ ${S}`}class qe extends Error{constructor({message:e,code:r,cause:n,name:i}){var 
       <td class="num" style="font-weight:700;">${n}</td>
       <td class="num"></td>
       <td class="num" style="font-weight:700;">${me(i)}</td>
-    </tr>`,document.getElementById("p-sign-1").textContent="Prepared By",document.getElementById("p-sign-2").textContent=t.type==="Return"?"Returned By":"Sent By",document.getElementById("p-sign-3").textContent="Received By",window.print()}function If({locationName:t,countDate:e,countedBy:r,items:n}){document.getElementById("p-doctitle").textContent="Stock Count Sheet",document.getElementById("p-ref").textContent=t,document.getElementById("p-status").textContent="Pending Count";const i=n.reduce((a,o)=>a+(Number(o.system_qty)||0),0);Gs([["Location",t],["Count Date",e],["Counted By",r||"________________"],["Total System Qty",i]]);const s=document.getElementById("p-notes-row");s&&(s.style.display="none"),document.getElementById("p-thead-row").innerHTML='<th>Product / Variant</th><th class="num">System Qty</th><th class="num">Counted Qty</th><th>Notes</th>',document.getElementById("p-items").innerHTML=n.map(a=>`<tr>
-      <td>${a.name}</td>
-      <td class="num">${a.system_qty}</td>
+    </tr>`,document.getElementById("p-sign-1").textContent="Prepared By",document.getElementById("p-sign-2").textContent=t.type==="Return"?"Returned By":"Sent By",document.getElementById("p-sign-3").textContent="Received By",window.print()}function If({locationName:t,countDate:e,countedBy:r,items:n}){document.getElementById("p-doctitle").textContent="Stock Count Sheet",document.getElementById("p-ref").textContent=t,document.getElementById("p-status").textContent="Pending Count";const i=n.reduce((o,l)=>o+(Number(l.system_qty)||0),0);Gs([["Location",t],["Count Date",e],["Counted By",r||"________________"],["Total System Qty",i]]);const s=document.getElementById("p-notes-row");s&&(s.style.display="none"),document.getElementById("p-thead-row").innerHTML='<th>Product / Variant</th><th class="num">System Qty</th><th class="num">Counted Qty</th><th>Notes</th>';const a=[...n].sort((o,l)=>o.name.localeCompare(l.name));document.getElementById("p-items").innerHTML=a.map(o=>`<tr>
+      <td>${o.name}</td>
+      <td class="num">${o.system_qty}</td>
       <td class="num"></td>
       <td></td>
     </tr>`).join(""),document.getElementById("p-tfoot").innerHTML=`<tr>
