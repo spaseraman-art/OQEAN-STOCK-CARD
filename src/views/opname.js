@@ -42,6 +42,14 @@ export async function render(root) {
         .filter(r => r.location_id === locationId)
         .map(r => ({ product_id: r.product_id, product: productsById[r.product_id], system_qty: r.qty }))
         .filter(r => r.product);
+        
+      // SORT ALPHABETICALLY BY PRODUCT NAME
+      currentItems.sort((a, b) => {
+        const nameA = `${a.product.style_name} — ${a.product.color} ${a.product.size}`;
+        const nameB = `${b.product.style_name} — ${b.product.color} ${b.product.size}`;
+        return nameA.localeCompare(nameB);
+      });
+
       const body = root.querySelector('#opnBody');
       body.innerHTML = currentItems.map((item, idx) => `
         <tr data-idx="${idx}">
