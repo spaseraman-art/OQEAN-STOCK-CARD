@@ -549,4 +549,13 @@ export async function markIncomingReceived(shipment) {
     });
   }
   return full;
+}export async function getProductLedger(productId, locationId) {
+  const { data, error } = await supabase
+    .from('stock_movements')
+    .select('created_at, movement_type, qty_change, note')
+    .eq('product_id', productId)
+    .eq('location_id', locationId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
 }
