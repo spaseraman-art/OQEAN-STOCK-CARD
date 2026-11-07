@@ -1,4 +1,4 @@
-import { getLocations, getProducts, getCurrentStock, getProductBreakdown, createLocation, createProduct, updateCommission } from '../db.js';
+import { getLocations, getProducts, getCurrentStock, getProductBreakdown, createLocation, createProduct, updateCommission, getProductLedger } from '../db.js';
 
 let currentSub = 'products';
 
@@ -91,7 +91,7 @@ async function renderProducts(container) {
           </tbody>
         </table>
       </div>
-      <div class="note">Click a row to see its per-location breakdown.</div>
+      <div class="note">Click a row to see its per-location breakdown and stock ledger.</div>
       <div class="builder" id="breakdownPanel">
         <div class="toolbar" style="justify-content:space-between;">
           <div style="font-weight:700;" id="bd-title"></div>
@@ -103,7 +103,6 @@ async function renderProducts(container) {
       </div>
     `;
 
-    // ----- live SKU preview + duplicate check -----
     const nameEl = container.querySelector('#np-name');
     const matEl = container.querySelector('#np-material');
     const colEl = container.querySelector('#np-color');
@@ -124,7 +123,6 @@ async function renderProducts(container) {
     }
     [nameEl, matEl, colEl, sizeEl].forEach(el => el.addEventListener('input', refreshSku));
 
-    // ----- show/hide form -----
     container.querySelector('#newProdBtn').addEventListener('click', () => {
       container.querySelector('#newProdForm').style.display = 'block';
     });
@@ -135,7 +133,6 @@ async function renderProducts(container) {
       skuEl.value = ''; warnEl.textContent = '';
     });
 
-    // ----- save -----
     container.querySelector('#np-save').addEventListener('click', async () => {
       const name = nameEl.value.trim();
       const material = matEl.value.trim();
@@ -150,22 +147,13 @@ async function renderProducts(container) {
       if (existingSkus.has(sku)) { alert(`SKU ${sku} already exists. Change one of the fields.`); return; }
 
       try {
-        await createProduct({
-          sku,
-          style_name: name,
-          material,
-          color,
-          size,
-          price,
-          status: 'Active',
-        });
+        await createProduct({ sku, style_name: name, material, color, size, price, status: 'Active' });
         await renderProducts(container);
       } catch (err) {
         alert('Failed to add product: ' + err.message);
       }
     });
 
-    // ----- search -----
     container.querySelector('#prodSearch').addEventListener('input', (e) => {
       const q = e.target.value.toLowerCase();
       container.querySelectorAll('#prodBody tr').forEach(row => {
@@ -173,16 +161,31 @@ async function renderProducts(container) {
       });
     });
 
-    // ----- row click → breakdown -----
     container.querySelectorAll('#prodBody tr[data-id]').forEach(row => {
       row.addEventListener('click', async () => {
         const product = products.find(p => p.id === row.dataset.id);
         const breakdown = await getProductBreakdown(product.id);
         container.querySelector('#bd-title').textContent = `${product.style_name} — ${product.color} ${product.size} (${product.sku})`;
+        
         container.querySelector('#bd-body').innerHTML = breakdown.map(b =>
-          `<tr><td>${b.location}</td><td>${b.qty}</td></tr>`
+          `<tr>
+            <td><a href="#" class="ledger-link" data-loc-id="${b.locationId}" style="color:var(--accent); text-decoration:underline;">${b.location}</a></td>
+            <td>${b.qty}</td>
+          </tr>`
         ).join('') || '<tr><td colspan="2" style="color:var(--muted);text-align:center;">No stock movements yet.</td></tr>';
+        
         container.querySelector('#breakdownPanel').classList.add('show');
+
+        // Bind click events to open the ledger
+        container.querySelectorAll('.ledger-link').forEach(link => {
+          link.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const locId = link.dataset.locId;
+            const locName = link.textContent;
+            const ledger = await getProductLedger(product.id, locId);
+            renderLedgerModal(product, locName, ledger);
+          });
+        });
       });
     });
     container.querySelector('#bd-close').addEventListener('click', () => {
@@ -261,4 +264,54 @@ async function renderLocations(container) {
   } catch (err) {
     container.innerHTML = `<div class="error-msg">Failed to load locations: ${err.message}</div>`;
   }
+}
+
+/* ---------- Stock Ledger Modal ---------- */
+function renderLedgerModal(product, locationName, movements) {
+  const existing = document.getElementById('ledgerModal');
+  if (existing) existing.remove();
+
+  let runningBalance = 0;
+  const rows = movements.map(m => {
+    runningBalance += m.qty_change;
+    const date = new Date(m.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+    const typeLabel = m.movement_type.replace(/_/g, ' ').toUpperCase();
+    
+    return `<tr>
+      <td style="font-size:11px; color:var(--muted); white-space:nowrap;">${date}</td>
+      <td><span class="badge draft" style="font-size:10px;">${typeLabel}</span></td>
+      <td class="num" style="color:${m.qty_change > 0 ? 'var(--good)' : '#e0603d'}; font-weight:700;">${m.qty_change > 0 ? '+' : ''}${m.qty_change}</td>
+      <td class="num" style="font-weight:700;">${runningBalance}</td>
+      <td style="font-size:11px; color:var(--muted);">${m.note || ''}</td>
+    </tr>`;
+  }).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'ledgerModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  
+  modal.innerHTML = `
+    <div style="background:var(--panel); width:100%; max-width:900px; border-radius:8px; display:flex; flex-direction:column; max-height:90vh;">
+      <div class="toolbar" style="justify-content:space-between; padding:16px; border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-weight:700; font-size:16px;">Stock Ledger</div>
+          <div style="font-size:12px; color:var(--muted);">${product.style_name} — ${product.color} ${product.size} (${product.sku}) at <b>${locationName}</b></div>
+        </div>
+        <button class="btn secondary" id="closeLedger">✕ Close</button>
+      </div>
+      
+      <div style="overflow:auto; padding:16px;">
+        <table>
+          <thead><tr><th>Date</th><th>Type</th><th class="num">Change</th><th class="num">Balance</th><th>Notes</th></tr></thead>
+          <tbody>
+            ${rows || '<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">No movements found.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  modal.querySelector('#closeLedger').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 }
