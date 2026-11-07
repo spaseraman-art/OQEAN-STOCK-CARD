@@ -185,13 +185,16 @@ async function renderProducts(container) {
 
         // Bind the new View Ledger buttons
         container.querySelectorAll('.view-ledger-btn').forEach(btn => {
-          btn.addEventListener('click', async (e) => {
+                   btn.addEventListener('click', async (e) => {
             e.preventDefault();
             const locId = btn.dataset.locId;
-            // Find the location name from the row text
             const locName = btn.parentElement.querySelector('span').textContent;
-            const ledger = await getProductLedger(product.id, locId);
-            renderLedgerModal(product, locName, ledger);
+            try {
+              const ledger = await getProductLedger(product.id, locId);
+              renderLedgerModal(product, locName, ledger);
+            } catch (err) {
+              alert("Database Error: " + err.message);
+            }
           });
         });
       });
