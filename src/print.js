@@ -72,12 +72,15 @@ export function printOpname({ locationName, countDate, countedBy, items }) {
   document.getElementById('p-doctitle').textContent = 'Stock Count Sheet';
   document.getElementById('p-ref').textContent = locationName;
   document.getElementById('p-status').textContent = 'Pending Count';
-  const systemTotal = items.reduce((s, i) => s + i.system_qty, 0);
+  
+  // Calculate actual quantities, not just row counts
+  const totalSystemQty = items.reduce((s, i) => s + (Number(i.system_qty) || 0), 0);
+  
   setMeta([
     ['Location', locationName],
     ['Count Date', countDate],
     ['Counted By', countedBy || '________________'],
-    ['Total System Qty', systemTotal],
+    ['Total System Qty', totalSystemQty],
   ]);
 
   const staleNotes = document.getElementById('p-notes-row');
@@ -85,11 +88,25 @@ export function printOpname({ locationName, countDate, countedBy, items }) {
 
   document.getElementById('p-thead-row').innerHTML =
     '<th>Product / Variant</th><th class="num">System Qty</th><th class="num">Counted Qty</th><th>Notes</th>';
+    
   document.getElementById('p-items').innerHTML = items.map(i =>
-    `<tr><td>${i.name}</td><td class="num">${i.system_qty}</td><td class="num"></td><td></td></tr>`
+    `<tr>
+      <td>${i.name}</td>
+      <td class="num">${i.system_qty}</td>
+      <td class="num"></td>
+      <td></td>
+    </tr>`
   ).join('');
+  
+  // Update the footer to show the total quantity, not the number of rows
   document.getElementById('p-tfoot').innerHTML =
-    `<tr><td style="font-weight:700;">Total Items</td><td class="num" style="font-weight:700;">${items.length}</td><td></td><td></td></tr>`;
+    `<tr>
+      <td style="font-weight:700;">Total Qty</td>
+      <td class="num" style="font-weight:700;">${totalSystemQty}</td>
+      <td></td>
+      <td></td>
+    </tr>`;
+    
   document.getElementById('p-sign-1').textContent = 'Counted By';
   document.getElementById('p-sign-2').textContent = 'Verified By';
   document.getElementById('p-sign-3').textContent = 'Approved By';
