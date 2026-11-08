@@ -43,7 +43,7 @@ export async function render(root) {
         .map(r => ({ product_id: r.product_id, product: productsById[r.product_id], system_qty: r.qty }))
         .filter(r => r.product);
         
-      // SORT ALPHABETICALLY BY PRODUCT NAME
+      // Sort alphabetically by Name
       currentItems.sort((a, b) => {
         const nameA = `${a.product.style_name} — ${a.product.color} ${a.product.size}`;
         const nameB = `${b.product.style_name} — ${b.product.color} ${b.product.size}`;
