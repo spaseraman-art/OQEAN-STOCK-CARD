@@ -209,6 +209,10 @@ function renderBuilder(root, initialType) {
     const tQty = lines.reduce((s, l) => s + l.qty, 0);
     const tVal = lines.reduce((s, l) => s + l.qty * l.unit_price, 0);
 
+    const toLocObj = locationsCache.find(l => l.id === toId);
+    const commPct = toLocObj?.commission_pct ?? 40; 
+    const oqeanShare = tVal * ((100 - commPct) / 100);
+
     builderArea.innerHTML = `
       <div class="builder show">
         <div class="toolbar" style="justify-content:space-between;">
@@ -281,7 +285,7 @@ function renderBuilder(root, initialType) {
           <h4>3. Items in this ${type}</h4>
           <div class="panel">
             <table>
-              <thead><tr><th>SKU</th><th>Product</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Subtotal</th><th></th></tr></thead>
+              <thead><tr><th>SKU</th><th>Product</th><th class="num">Qty</th><th class="num">Retail Price</th><th class="num">Total Retail</th><th></th></tr></thead>
               <tbody id="linesBody">
                 ${lines.length === 0
                   ? '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px;">No items yet — add above.</td></tr>'
@@ -308,12 +312,19 @@ function renderBuilder(root, initialType) {
           </div>
         </div>
 
+        ${tVal > 0 ? `
+        <div class="cards" style="margin-bottom:16px;">
+          <div class="card"><div class="label">Total Retail Value</div><div class="value">${fmtRp(tVal)}</div></div>
+          <div class="card"><div class="label">OQEAN Share (${100 - commPct}%)</div><div class="value" style="color:var(--good);">${fmtRp(oqeanShare)}</div></div>
+        </div>
+        ` : ''}
+
         <button class="btn" id="createBtn">Create ${type} (Draft)</button>
       </div>
     `;
 
     builderArea.querySelector('#fromSel').addEventListener('change', (e) => { fromId = e.target.value; paint(); });
-    builderArea.querySelector('#toSel').addEventListener('change', (e) => { toId = e.target.value; });
+    builderArea.querySelector('#toSel').addEventListener('change', (e) => { toId = e.target.value; paint(); });
     builderArea.querySelector('#dateSel').addEventListener('change', (e) => { dateVal = e.target.value; });
     const notesEl = builderArea.querySelector('#notesInput');
     if (notesEl) notesEl.addEventListener('input', (e) => { notesVal = e.target.value; });
@@ -417,38 +428,13 @@ function renderBuilder(root, initialType) {
       paint();
     });
 
-        builderArea.querySelectorAll('[data-line-qty]').forEach(inp => {
+    builderArea.querySelectorAll('[data-line-qty]').forEach(inp => {
       inp.addEventListener('change', () => {
         const idx = parseInt(inp.dataset.lineQty, 10);
         const v = parseInt(inp.value, 10) || 1;
         if (v < 1) { inp.value = lines[idx].qty; return; }
         lines[idx].qty = v;
-        // don't repaint on change — wait for Enter/Tab out to keep focus predictable
-      });
-      inp.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        const idx = parseInt(inp.dataset.lineQty, 10);
-        const v = parseInt(inp.value, 10) || 1;
-        if (v >= 1) lines[idx].qty = v;
-        // find next qty input
-        const allQty = [...builderArea.querySelectorAll('[data-line-qty]')];
-        const currentPos = allQty.indexOf(inp);
-        const next = allQty[currentPos + 1];
-        if (next) {
-          next.focus();
-          next.select();
-        } else {
-          paint();
-        }
-      });
-      inp.addEventListener('blur', () => {
-        const idx = parseInt(inp.dataset.lineQty, 10);
-        const v = parseInt(inp.value, 10) || 1;
-        if (v >= 1 && v !== lines[idx].qty) {
-          lines[idx].qty = v;
-          paint();
-        }
+        paint();
       });
     });
     builderArea.querySelectorAll('[data-line-remove]').forEach(btn => {
@@ -496,6 +482,10 @@ async function renderDetail(root, id) {
     const totalQty = full.delivery_items.reduce((s, i) => s + i.qty, 0);
     const totalValue = full.delivery_items.reduce((s, i) => s + i.qty * (i.unit_price || 0), 0);
 
+    const toLocObj = locationsCache.find(l => l.id === full.to_location_id);
+    const commPct = toLocObj?.commission_pct ?? 40; 
+    const oqeanShare = totalValue * ((100 - commPct) / 100);
+
     viewArea.innerHTML = `
       <div class="builder show" ${isVoid ? 'style="opacity:0.75;"' : ''}>
         <div class="toolbar" style="justify-content:space-between;">
@@ -519,17 +509,22 @@ async function renderDetail(root, id) {
 
         <div class="panel">
           <table>
-            <thead><tr><th>SKU</th><th>Product</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Subtotal</th>${isDraft ? '<th></th>' : ''}</tr></thead>
+            <thead><tr><th>SKU</th><th>Product</th><th class="num">Qty</th><th class="num">Retail Price</th><th class="num">Total Retail</th><th class="num">OQEAN Share</th>${isDraft ? '<th></th>' : ''}</tr></thead>
             <tbody id="itemsBody">
-              ${full.delivery_items.map(i => `
+              ${full.delivery_items.map(i => {
+                const retail = i.qty * (i.unit_price || 0);
+                const oqean = retail * ((100 - commPct) / 100);
+                return `
                 <tr data-item-row="${i.id}">
                   <td>${i.products.sku}</td>
                   <td>${i.products.style_name} — ${i.products.color} ${i.products.size}</td>
                   <td class="num">${isDraft ? `<input type="number" class="edit-qty" data-item-id="${i.id}" value="${i.qty}" min="1" style="width:70px;text-align:right;">` : i.qty}</td>
                   <td class="num">${fmtRp(i.unit_price || 0)}</td>
-                  <td class="num">${fmtRp(i.qty * (i.unit_price || 0))}</td>
+                  <td class="num">${fmtRp(retail)}</td>
+                  <td class="num" style="color:var(--good);">${fmtRp(oqean)}</td>
                   ${isDraft ? `<td><button class="btn secondary danger remove-item-btn" data-item-id="${i.id}" style="padding:4px 10px;">✕</button></td>` : ''}
-                </tr>`).join('')}
+                </tr>`;
+              }).join('')}
             </tbody>
             <tfoot>
               <tr>
@@ -537,6 +532,7 @@ async function renderDetail(root, id) {
                 <td class="num" style="font-weight:700;">${totalQty}</td>
                 <td class="num"></td>
                 <td class="num" style="font-weight:700;">${fmtRp(totalValue)}</td>
+                <td class="num" style="font-weight:700; color:var(--good);">${fmtRp(oqeanShare)}</td>
                 ${isDraft ? '<td></td>' : ''}
               </tr>
             </tfoot>
@@ -554,6 +550,11 @@ async function renderDetail(root, id) {
           ` : ''}
         </div>
 
+        <div class="cards" style="margin-bottom:16px;">
+          <div class="card"><div class="label">Total Retail Value</div><div class="value">${fmtRp(totalValue)}</div></div>
+          <div class="card"><div class="label">OQEAN Share (${100 - commPct}%)</div><div class="value" style="color:var(--good);">${fmtRp(oqeanShare)}</div></div>
+        </div>
+
         <div class="toolbar" style="flex-wrap:wrap;">
           ${isDraft ? '<button class="btn secondary" id="saveChanges">💾 Save Changes</button>' : ''}
           ${isDraft ? '<button class="btn" id="advanceBtn">Approve</button>' : ''}
@@ -566,7 +567,7 @@ async function renderDetail(root, id) {
       </div>
     `;
     viewArea.querySelector('#closeDetail').addEventListener('click', () => { viewArea.innerHTML = ''; });
-    viewArea.querySelector('#printBtn').addEventListener('click', () => printDelivery(full));
+    viewArea.querySelector('#printBtn').addEventListener('click', () => printDelivery(full, commPct));
     viewArea.querySelector('#exportDetailBtn').addEventListener('click', () => exportDeliveryDetail(full));
 
     viewArea.querySelectorAll('.remove-item-btn').forEach(btn => {
