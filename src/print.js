@@ -36,37 +36,43 @@ export function printDelivery(full, commPct = 40) {
     notesRow.style.display = 'none';
   }
 
+  // REORDERED HEADERS: Retail Price -> Qty -> OQEAN Price -> Total OQEAN
   document.getElementById('p-thead-row').innerHTML =
-    '<th>SKU</th><th>Product</th><th>Color</th><th>Size</th><th class="num">Qty</th><th class="num">Retail Price</th><th class="num">Total Retail</th><th class="num">OQEAN Share</th>';
+    '<th>SKU</th><th>Product</th><th>Color</th><th>Size</th><th class="num">Retail Price</th><th class="num">Qty</th><th class="num">OQEAN Price</th><th class="num">Total</th>';
 
   const oqeanPct = (100 - commPct) / 100;
 
   document.getElementById('p-items').innerHTML = full.delivery_items.map(i => {
-    const retail = i.qty * (i.unit_price || 0);
-    const oqean = retail * oqeanPct;
+    const retail = i.unit_price || 0;
+    const oqeanUnitPrice = retail * oqeanPct; // OQEAN share per piece
+    const totalLine = oqeanUnitPrice * i.qty; // Total OQEAN share for the line
+    
     return `
     <tr>
       <td>${i.products.sku}</td>
       <td>${i.products.style_name}</td>
       <td>${i.products.color}</td>
       <td>${i.products.size}</td>
-      <td class="num">${i.qty}</td>
-      <td class="num">${fmtRp(i.unit_price || 0)}</td>
       <td class="num">${fmtRp(retail)}</td>
-      <td class="num">${fmtRp(oqean)}</td>
+      <td class="num">${i.qty}</td>
+      <td class="num">${fmtRp(oqeanUnitPrice)}</td>
+      <td class="num">${fmtRp(totalLine)}</td>
     </tr>
   `}).join('');
 
   const totalQty = full.delivery_items.reduce((s, i) => s + i.qty, 0);
-  const totalValue = full.delivery_items.reduce((s, i) => s + i.qty * (i.unit_price || 0), 0);
-  const totalOqean = totalValue * oqeanPct;
+  const totalOqean = full.delivery_items.reduce((s, i) => {
+    const retail = i.unit_price || 0;
+    const oqeanUnitPrice = retail * oqeanPct;
+    return s + (oqeanUnitPrice * i.qty);
+  }, 0);
 
   document.getElementById('p-tfoot').innerHTML =
     `<tr>
       <td colspan="4" style="text-align:right;font-weight:700;">Total</td>
+      <td class="num"></td>
       <td class="num" style="font-weight:700;">${totalQty}</td>
       <td class="num"></td>
-      <td class="num" style="font-weight:700;">${fmtRp(totalValue)}</td>
       <td class="num" style="font-weight:700;">${fmtRp(totalOqean)}</td>
     </tr>`;
 
