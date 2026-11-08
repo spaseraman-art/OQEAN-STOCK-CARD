@@ -668,3 +668,4 @@ async function renderDetail(root, id) {
     viewArea.innerHTML = `<div class="error-msg">Failed to load: ${err.message}</div>`;
   }
 }
+}
