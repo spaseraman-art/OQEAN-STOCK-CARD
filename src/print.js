@@ -76,6 +76,51 @@ export function printDelivery(full, commPct = 40) {
   window.print();
 }
 
+export function printOpname({ locationName, countDate, countedBy, items }) {
+  document.getElementById('p-doctitle').textContent = 'Stock Count Sheet';
+  document.getElementById('p-ref').textContent = locationName;
+  document.getElementById('p-status').textContent = 'Pending Count';
+  
+  const totalSystemQty = items.reduce((s, i) => s + (Number(i.system_qty) || 0), 0);
+  
+  setMeta([
+    ['Location', locationName],
+    ['Count Date', countDate],
+    ['Counted By', countedBy || '________________'],
+    ['Total System Qty', totalSystemQty],
+  ]);
+
+  const staleNotes = document.getElementById('p-notes-row');
+  if (staleNotes) staleNotes.style.display = 'none';
+
+  document.getElementById('p-thead-row').innerHTML =
+    '<th>Product / Variant</th><th class="num">System Qty</th><th class="num">Counted Qty</th><th>Notes</th>';
+    
+  const sortedItems = [...items].sort((a, b) => a.name.localeCompare(b.name));
+
+  document.getElementById('p-items').innerHTML = sortedItems.map(i =>
+    `<tr>
+      <td>${i.name}</td>
+      <td class="num">${i.system_qty}</td>
+      <td class="num"></td>
+      <td></td>
+    </tr>`
+  ).join('');
+  
+  document.getElementById('p-tfoot').innerHTML =
+    `<tr>
+      <td style="font-weight:700;">Total Qty</td>
+      <td class="num" style="font-weight:700;">${totalSystemQty}</td>
+      <td></td>
+      <td></td>
+    </tr>`;
+    
+  document.getElementById('p-sign-1').textContent = 'Counted By';
+  document.getElementById('p-sign-2').textContent = 'Verified By';
+  document.getElementById('p-sign-3').textContent = 'Approved By';
+  window.print();
+}
+
 export function printInvoice(full) {
   document.getElementById('p-doctitle').textContent = 'Consignment Invoice';
   document.getElementById('p-ref').textContent = full.ref;
