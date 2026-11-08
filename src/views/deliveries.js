@@ -182,7 +182,6 @@ function renderList(root, deliveries) {
     row.addEventListener('click', () => renderDetail(root, row.dataset.id));
   });
 }
-
 function renderBuilder(root, initialType) {
   const builderArea = root.querySelector('#builderArea');
   let type = initialType;
@@ -466,7 +465,6 @@ function renderBuilder(root, initialType) {
   }
   paint();
 }
-
 async function renderDetail(root, id) {
   const viewArea = root.querySelector('#viewArea');
   viewArea.innerHTML = '<div class="loading">Loading…</div>';
