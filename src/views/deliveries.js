@@ -17,7 +17,7 @@ export async function render(root) {
     root.innerHTML = `<div class="error-msg">Failed to load deliveries: ${err.message}</div>`;
   }
 }
-
+}
 function totalQty(d) {
   return d.delivery_items.reduce((s, i) => s + i.qty, 0);
 }
