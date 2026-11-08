@@ -9,7 +9,7 @@ function setMeta(fields) {
   ).join('');
 }
 
-export function printDelivery(full) {
+export function printDelivery(full, commPct = 40) {
   document.getElementById('p-doctitle').textContent = full.type === 'Return' ? 'Return Order' : 'Delivery Order';
   document.getElementById('p-ref').textContent = full.ref;
   document.getElementById('p-status').textContent = full.status;
@@ -37,9 +37,14 @@ export function printDelivery(full) {
   }
 
   document.getElementById('p-thead-row').innerHTML =
-    '<th>SKU</th><th>Product</th><th>Color</th><th>Size</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Subtotal</th>';
+    '<th>SKU</th><th>Product</th><th>Color</th><th>Size</th><th class="num">Qty</th><th class="num">Retail Price</th><th class="num">Total Retail</th><th class="num">OQEAN Share</th>';
 
-  document.getElementById('p-items').innerHTML = full.delivery_items.map(i => `
+  const oqeanPct = (100 - commPct) / 100;
+
+  document.getElementById('p-items').innerHTML = full.delivery_items.map(i => {
+    const retail = i.qty * (i.unit_price || 0);
+    const oqean = retail * oqeanPct;
+    return `
     <tr>
       <td>${i.products.sku}</td>
       <td>${i.products.style_name}</td>
@@ -47,12 +52,14 @@ export function printDelivery(full) {
       <td>${i.products.size}</td>
       <td class="num">${i.qty}</td>
       <td class="num">${fmtRp(i.unit_price || 0)}</td>
-      <td class="num">${fmtRp(i.qty * (i.unit_price || 0))}</td>
+      <td class="num">${fmtRp(retail)}</td>
+      <td class="num">${fmtRp(oqean)}</td>
     </tr>
-  `).join('');
+  `}).join('');
 
   const totalQty = full.delivery_items.reduce((s, i) => s + i.qty, 0);
   const totalValue = full.delivery_items.reduce((s, i) => s + i.qty * (i.unit_price || 0), 0);
+  const totalOqean = totalValue * oqeanPct;
 
   document.getElementById('p-tfoot').innerHTML =
     `<tr>
@@ -60,57 +67,12 @@ export function printDelivery(full) {
       <td class="num" style="font-weight:700;">${totalQty}</td>
       <td class="num"></td>
       <td class="num" style="font-weight:700;">${fmtRp(totalValue)}</td>
+      <td class="num" style="font-weight:700;">${fmtRp(totalOqean)}</td>
     </tr>`;
 
   document.getElementById('p-sign-1').textContent = 'Prepared By';
   document.getElementById('p-sign-2').textContent = full.type === 'Return' ? 'Returned By' : 'Sent By';
   document.getElementById('p-sign-3').textContent = 'Received By';
-  window.print();
-}
-
-export function printOpname({ locationName, countDate, countedBy, items }) {
-  document.getElementById('p-doctitle').textContent = 'Stock Count Sheet';
-  document.getElementById('p-ref').textContent = locationName;
-  document.getElementById('p-status').textContent = 'Pending Count';
-  
-  const totalSystemQty = items.reduce((s, i) => s + (Number(i.system_qty) || 0), 0);
-  
-  setMeta([
-    ['Location', locationName],
-    ['Count Date', countDate],
-    ['Counted By', countedBy || '________________'],
-    ['Total System Qty', totalSystemQty],
-  ]);
-
-  const staleNotes = document.getElementById('p-notes-row');
-  if (staleNotes) staleNotes.style.display = 'none';
-
-  document.getElementById('p-thead-row').innerHTML =
-    '<th>Product / Variant</th><th class="num">System Qty</th><th class="num">Counted Qty</th><th>Notes</th>';
-    
-  // Sort alphabetically by Name
-  const sortedItems = [...items].sort((a, b) => a.name.localeCompare(b.name));
-
-  document.getElementById('p-items').innerHTML = sortedItems.map(i =>
-    `<tr>
-      <td>${i.name}</td>
-      <td class="num">${i.system_qty}</td>
-      <td class="num"></td>
-      <td></td>
-    </tr>`
-  ).join('');
-  
-  document.getElementById('p-tfoot').innerHTML =
-    `<tr>
-      <td style="font-weight:700;">Total Qty</td>
-      <td class="num" style="font-weight:700;">${totalSystemQty}</td>
-      <td></td>
-      <td></td>
-    </tr>`;
-    
-  document.getElementById('p-sign-1').textContent = 'Counted By';
-  document.getElementById('p-sign-2').textContent = 'Verified By';
-  document.getElementById('p-sign-3').textContent = 'Approved By';
   window.print();
 }
 
