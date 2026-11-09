@@ -1,4 +1,4 @@
-import { getLocations, getProducts, getCurrentStock, getProductBreakdown, createLocation, createProduct, updateCommission, getProductLedger } from '../db.js';
+import { getLocations, getProducts, getCurrentStock, getProductBreakdown, createLocation, createProduct, updateProduct, updateCommission, getProductLedger } from '../db.js';
 
 let currentSub = 'products';
 
@@ -79,7 +79,7 @@ async function renderProducts(container) {
       </div>
       <div class="panel">
         <table>
-          <thead><tr><th>SKU</th><th>Product</th><th>Material</th><th>Color</th><th>Size</th><th>Total On Hand</th><th>Price</th><th>Status</th></tr></thead>
+          <thead><tr><th>SKU</th><th>Product</th><th>Material</th><th>Color</th><th>Size</th><th>Total On Hand</th><th>Price</th><th>Status</th><th></th></tr></thead>
           <tbody id="prodBody">
             ${products.map(p => `
               <tr class="hoverable" data-id="${p.id}">
@@ -87,7 +87,8 @@ async function renderProducts(container) {
                 <td>${totalByProduct[p.id] || 0}</td>
                 <td>Rp ${Number(p.price).toLocaleString('en-US')}</td>
                 <td><span class="badge ${p.status === 'Active' ? 'sent' : 'draft'}">${p.status}</span></td>
-              </tr>`).join('') || '<tr><td colspan="8" style="color:var(--muted);text-align:center;">No products yet.</td></tr>'}
+                <td><button class="btn secondary edit-price-btn" data-id="${p.id}" style="padding:4px 8px; font-size:11px;">✏️ Edit</button></td>
+              </tr>`).join('') || '<tr><td colspan="9" style="color:var(--muted);text-align:center;">No products yet.</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -101,9 +102,25 @@ async function renderProducts(container) {
           <table><thead><tr><th>Location</th><th>On Hand</th></tr></thead><tbody id="bd-body"></tbody></table>
         </div>
       </div>
+      <div id="editProductModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+        <div class="panel" style="width:100%; max-width:500px; margin:20px;">
+          <div class="panel-head"><h3>Edit Product</h3></div>
+          <form class="entry-form" id="editProdForm">
+            <label>Style Name<input type="text" id="ep-name"></label>
+            <label>Material<input type="text" id="ep-material"></label>
+            <label>Colour<input type="text" id="ep-color"></label>
+            <label>Size<input type="text" id="ep-size"></label>
+            <label>Price (Rp)<input type="number" id="ep-price" min="0"></label>
+            <div class="full" style="display:flex;gap:10px; margin-top:10px;">
+              <button type="submit" class="btn">Save Changes</button>
+              <button type="button" class="btn secondary" id="ep-cancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
     `;
 
-    // --- SKU Auto-generation logic ---
+    // --- Add Product Logic ---
     const nameEl = container.querySelector('#np-name');
     const matEl = container.querySelector('#np-material');
     const colEl = container.querySelector('#np-color');
@@ -139,10 +156,9 @@ async function renderProducts(container) {
       const price = parseFloat(container.querySelector('#np-price').value);
       const sku = makeSku(name, material, color, size);
 
-      if (!name || !material || !color || !size) { alert('Please fill in Name, Material, Colour, and Size.'); return; }
+      if (!name || !material || !color || !size) { alert('Please fill in all fields.'); return; }
       if (!price || price <= 0) { alert('Please enter a valid price.'); return; }
-      if (!sku) { alert('Could not generate SKU. Check the fields.'); return; }
-      if (existingSkus.has(sku)) { alert(`SKU ${sku} already exists. Change one of the fields.`); return; }
+      if (existingSkus.has(sku)) { alert(`SKU ${sku} already exists.`); return; }
 
       try {
         await createProduct({ sku, style_name: name, material, color, size, price, status: 'Active' });
@@ -152,6 +168,49 @@ async function renderProducts(container) {
       }
     });
 
+    // --- Edit Product Logic ---
+    const editModal = container.querySelector('#editProductModal');
+    const editForm = container.querySelector('#editProdForm');
+    let editingId = null;
+
+    container.querySelectorAll('.edit-price-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation(); // prevent row click
+        const p = products.find(x => x.id === btn.dataset.id);
+        if (!p) return;
+        editingId = p.id;
+        container.querySelector('#ep-name').value = p.style_name;
+        container.querySelector('#ep-material').value = p.material;
+        container.querySelector('#ep-color').value = p.color;
+        container.querySelector('#ep-size').value = p.size;
+        container.querySelector('#ep-price').value = p.price;
+        editModal.style.display = 'flex';
+      });
+    });
+
+    container.querySelector('#ep-cancel').addEventListener('click', () => {
+      editModal.style.display = 'none';
+    });
+
+    editForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const patch = {
+        style_name: container.querySelector('#ep-name').value.trim(),
+        material: container.querySelector('#ep-material').value.trim(),
+        color: container.querySelector('#ep-color').value.trim(),
+        size: container.querySelector('#ep-size').value.trim(),
+        price: parseFloat(container.querySelector('#ep-price').value) || 0
+      };
+      try {
+        await updateProduct(editingId, patch);
+        editModal.style.display = 'none';
+        await renderProducts(container);
+      } catch (err) {
+        alert('Failed to update: ' + err.message);
+      }
+    });
+
+    // --- Breakdown & Ledger Logic ---
     container.querySelector('#prodSearch').addEventListener('input', (e) => {
       const q = e.target.value.toLowerCase();
       container.querySelectorAll('#prodBody tr').forEach(row => {
@@ -159,16 +218,12 @@ async function renderProducts(container) {
       });
     });
 
-    // --- Row Click Logic (Fixed) ---
     container.querySelectorAll('#prodBody tr[data-id]').forEach(row => {
       row.addEventListener('click', async () => {
         const product = products.find(p => p.id === row.dataset.id);
-        if (!product) return;
-
         const breakdown = await getProductBreakdown(product.id);
         container.querySelector('#bd-title').textContent = `${product.style_name} — ${product.color} ${product.size} (${product.sku})`;
         
-        // Build the breakdown table
         container.querySelector('#bd-body').innerHTML = breakdown.map(b => `
           <tr>
             <td>
@@ -183,23 +238,17 @@ async function renderProducts(container) {
         
         container.querySelector('#breakdownPanel').classList.add('show');
 
-        // Bind the new View Ledger buttons
         container.querySelectorAll('.view-ledger-btn').forEach(btn => {
-                   btn.addEventListener('click', async (e) => {
+          btn.addEventListener('click', async (e) => {
             e.preventDefault();
             const locId = btn.dataset.locId;
             const locName = btn.parentElement.querySelector('span').textContent;
-            try {
-              const ledger = await getProductLedger(product.id, locId);
-              renderLedgerModal(product, locName, ledger);
-            } catch (err) {
-              alert("Database Error: " + err.message);
-            }
+            const ledger = await getProductLedger(product.id, locId);
+            renderLedgerModal(product, locName, ledger);
           });
         });
       });
     });
-
     container.querySelector('#bd-close').addEventListener('click', () => {
       container.querySelector('#breakdownPanel').classList.remove('show');
     });
