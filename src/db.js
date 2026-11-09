@@ -34,7 +34,16 @@ export async function createProduct(p) {
   if (error) throw error;
   return data;
 }
-
+export async function updateProduct(id, patch) {
+  const { data, error } = await supabase
+    .from('products')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
 /* ---------- Stock ---------- */
 export async function getCurrentStock() {
   const { data, error } = await supabase.from('v_current_stock').select('*');
