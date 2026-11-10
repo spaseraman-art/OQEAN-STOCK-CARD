@@ -1,5 +1,30 @@
 import { supabase } from './supabaseClient.js';
+export let currentBrandId = localStorage.getItem('activeBrandId');
 
+export function setBrandId(id) {
+  currentBrandId = id;
+  if (id) localStorage.setItem('activeBrandId', id);
+  else localStorage.removeItem('activeBrandId');
+}
+
+export async function getBrands() {
+  const { data, error } = await supabase.from('brands').select('*').order('name');
+  if (error) throw error;
+  return data;
+}
+
+export async function createBrand(name) {
+  const { data, error } = await supabase.from('brands').insert({ name }).select().single();
+  if (error) throw error;
+  
+  // Auto-create the default locations for the new brand
+  await supabase.from('locations').insert([
+    { name: 'Home Store', type: 'Main Warehouse', brand_id: data.id },
+    { name: 'Supplier', type: 'Main Warehouse', brand_id: data.id }
+  ]);
+  
+  return data;
+}
 /* ---------- Locations ---------- */
 export async function getLocations() {
   const { data, error } = await supabase.from('locations').select('*').order('name');
