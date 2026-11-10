@@ -27,7 +27,11 @@ export async function createBrand(name) {
 }
 /* ---------- Locations ---------- */
 export async function getLocations() {
-  const { data, error } = await supabase.from('locations').select('*').order('name');
+  const { data, error } = await supabase
+    .from('locations')
+    .select('*')
+    .eq('brand_id', currentBrandId) // <-- FILTER BY BRAND
+    .order('name');
   if (error) throw error;
   return data;
 }
