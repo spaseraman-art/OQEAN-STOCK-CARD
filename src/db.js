@@ -55,9 +55,7 @@ export async function getProductBreakdown(productId) {
     .eq('product_id', productId);
   if (stockErr) throw stockErr;
 
-  const { data: locations, error: locErr } = await supabase
-    .from('locations')
-    .select('id, name');
+  const { data: locations, error: locErr } = await supabase.from('locations').select('id, name');
   if (locErr) throw locErr;
 
   const locMap = {};
